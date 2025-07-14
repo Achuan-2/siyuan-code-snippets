@@ -1,0 +1,99 @@
+/* ------------------字体导出优化--------------------*/
+#preview .protyle-wysiwyg div[custom-pdf="false"] {
+    display: none !important;
+}
+
+/* 导出pdf设置字体样式 */
+#preview .protyle-wysiwyg {
+    font-size: 20px !important;
+}
+
+#preview .protyle-wysiwyg .code-block {
+    width: 98% !important;
+    margin: 1em auto;
+    padding: 0px;
+}
+
+#preview .protyle-wysiwyg [data-node-id].li>.protyle-action~div {
+    line-height: unset;
+}
+
+
+#preview .protyle-wysiwyg .hljs {
+    padding: 2em 1em 0.6em;
+}
+
+/* ------------------分页块导出优化--------------------*/
+/* 用HTML块来分页不占用空间 */
+#preview .protyle-wysiwyg div[data-type="NodeHTMLBlock"]:has(div > protyle-html[data-content*="page-break-after"]) {
+    height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    line-height: 0 !important;
+    min-height: 0 !important;
+}
+
+/* ------------------图片导出优化--------------------*/
+
+#preview .protyle-wysiwyg span:not[style]>img {
+    margin: 0 auto;
+    /* 控制图片高度 */
+    max-height: 350px;
+    /* 自动调整宽度以保持比例 */
+    width: auto !important;
+    /* 自动调整高度以保持比例 */
+    height: auto !important;
+    /* 自动调整高度以保持比例 */
+    max-width: 100%;
+}
+
+#preview .protyle-wysiwyg span>img {
+    width: 70%;
+}
+
+
+/* ------------------标题导出优化--------------------*/
+/* 合并子文档h1标题自动分页 */
+
+#preview .protyle-wysiwyg .h1[title] {
+    color: #000;
+    border: unset;
+    page-break-before: unset !important;
+}
+
+#preview .protyle-wysiwyg .h1:not([title], :first-child) {
+    page-break-before: always;
+
+}
+
+#preview .protyle-wysiwyg .h1:not([title]):nth-child(2) {
+    page-break-before: unset !important;
+
+}
+
+/* ------------------段落块导出优化--------------------*/
+/* 段落块可以被打断分页 */
+#preview .protyle-wysiwyg .p {
+    break-inside: auto !important;
+}
+
+/* ------------------blockquote导出优化--------------------*/
+/* blockquote段落能被分页 */
+#preview .protyle-wysiwyg .bq {
+    break-inside: auto !important;
+}
+
+/* blockquote的第一个段落块禁止被分页，不然会有一个空白行在前一页的情况 */
+#preview .protyle-wysiwyg .p:first-child {
+    page-break-before: avoid;
+}
+
+/* blockquote的列表允许被分页 */
+#preview .protyle-wysiwyg .bq li {
+    break-inside: auto !important;
+}
+
+#preview .protyle-wysiwyg ..bq li:first-child {
+    page-break-before: avoid;
+}

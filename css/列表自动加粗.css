@@ -1,0 +1,31 @@
+./* ************列表自动加粗*********** */
+/* ** 版本1：只要一个列表项（li）有子项，则所属的列表块（list）的最顶级列表项（li）都加粗** */
+/* ** 顶级列表自动加粗：文档/列表块自定义属性添加`list-autobold=false`取消自动加粗）** */
+.protyle-wysiwyg:not([custom-list-autobold="false"])>.list:not([custom-list-autobold="false"]):has(>.li> div.protyle-action+ .p +div:not(.protyle-attr)) {
+
+    /* 选择列表项的第一个段落进行加粗 */
+    &>.li>div.protyle-action+.p {
+        font-weight: bold;
+    }
+}
+
+.b3-typography ul:not([custom-list-autobold="false"]):has(li>p+*) {
+    &>li>p {
+        font-weight: bold;
+    }
+}
+
+/* ** 【非顶级列表块/列表项没有子项的列表块】自定义属性添加`list-autobold=true`可自动加粗**  */
+.protyle-wysiwyg .list[custom-list-autobold="true"] {
+
+    /* 选择列表项的第一个段落进行加粗 */
+    &>.li>div.protyle-action+.p {
+        font-weight: bold;
+    }
+}
+
+.b3-typography ul[custom-list-autobold="true"] {
+    &>li>p {
+        font-weight: bold;
+    }
+}

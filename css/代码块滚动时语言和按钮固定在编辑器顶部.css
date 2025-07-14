@@ -1,0 +1,16 @@
+/* 代码块滚动时语言和按钮固定在编辑器顶部 CSS片段 */
+/* author by JeffreyChen https://ld246.com/article/1728146248791 */
+div:not(#preview)>.protyle-wysiwyg[contenteditable] .code-block>.protyle-action {
+    align-items: center;
+    position: sticky !important;
+    top: 0 !important;
+    padding: 0 !important;
+    height: 30px;
+}
+
+
+
+.b3-typography .code-block:not(pre),
+div:not(#preview)>.protyle-wysiwyg .code-block:not(pre) {
+    padding-top: 0.2em;
+}

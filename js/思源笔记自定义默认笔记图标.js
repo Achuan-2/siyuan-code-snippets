@@ -1,0 +1,1 @@
+siyuan.storage["local-images"].note = '1F5C2'

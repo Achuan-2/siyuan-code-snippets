@@ -1,0 +1,12 @@
+/* ---------------------------代码块限制最大高度------------------------------*/
+
+div:not(#preview)>.protyle-wysiwyg .code-block .hljs {
+    max-height: 800px;
+}
+
+.b3-typography .code-block .hljs {
+    max-height: 500px;
+}
+
+
+/* ---------------------------代码块限制最大高度------------------------------*/

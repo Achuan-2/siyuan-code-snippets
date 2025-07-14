@@ -1,0 +1,10 @@
+/* 横向超级块中图片和挂件垂直居中 */
+.protyle-wysiwyg .sb[data-sb-layout="col"]:has(.img),
+.protyle-wysiwyg .sb[data-sb-layout="col"]:has(.iframe) {
+    align-items: center;
+}
+
+/* 防止用自定义emoj的纯文本段落也垂直居中 */
+.protyle-wysiwyg .sb[data-sb-layout="col"]:has(.img[style="max-width: 30px;"]) {
+    align-items: start;
+}
