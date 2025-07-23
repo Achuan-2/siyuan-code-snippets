@@ -1,18 +1,18 @@
-// Version: 3.1
+// Version: 3.2
 // Author: Achuan-2
-// - 20250714 v3.1
+// - v3.2/20250723
+//   - 标题编号改进：如果全文只有一个h1标题，则不对h1标题进行编号，只对h2及更低标题进行编号
+//   - 修复知乎和Markdown按钮处理函数中缺少点击桌面按钮的问题
+
+// - v3.1/20250714
 //   - 粘贴到微信公众号新版编辑器的代码块优化：需要替换`\n`和空格为`<br>`和`&nbsps;`
 //   - 去除代码块的零宽字符，避免影响用户使用
 //   - 图片替换不替换代码块里的markdown图片格式，避免影响代码块内容
-
-// - 20250709 v3.0
-//   - 粘贴到知乎，支持图片标题
-//   - 改进复制到知乎的代码块高亮，粘贴支持直接高亮
-// - 20250630 v2.0
+// - v2.0/20250630 
 //   - 支持选择图床，选择默认/picgo图床，默认是默认图床，即使用思源笔记图床，使用默认图床，对于微信和知乎，不需要处理，对于Github添加 DEFAULT_IMAGE_PREFIX
 //   - 改进获取微信文章链接方法，如果该笔记没有微信文章链接，但是有其他平台链接，则用其他平台链接
 //   - 将Github/语雀相关的按钮和处理函数重命名为Markdown
-// - 20250629 v1.0
+// - v1.0/20250629 
 //   - 完善知乎多级列表，对普通多级列表（没有图片和代码块）也处理为普通文本
 //   - 添加标题编号功能，导出到微信公众号、知乎、Markdown都支持添加标题编号
 
@@ -226,7 +226,7 @@
 
                 const processedLines = lines.map(line => {
                     // 检测代码块边界
-                    const codeBlockMatch = line.match(/^(\s*)(```|~~~)(.*)$/);
+                    const codeBlockMatch = line.match(/^(\s*)(‍```|~~~)(.*)$/);
                     if (codeBlockMatch) {
                         const [, indent, fence, language] = codeBlockMatch;
                         if (!inCodeBlock) {
@@ -298,7 +298,7 @@ $$([^\$$
 
                 const processedLines = lines.map(line => {
                     // 检测代码块边界
-                    const codeBlockMatch = line.match(/^(\s*)(```|~~~)(.*)$/);
+                    const codeBlockMatch = line.match(/^(\s*)(‍```|~~~)(.*)$/);
                     if (codeBlockMatch) {
                         const [, indent, fence, language] = codeBlockMatch;
                         if (!inCodeBlock) {
@@ -1088,9 +1088,18 @@ $$([^\$$
         static processHeadingsInArea(area) {
             const headings = area.querySelectorAll('h1, h2, h3, h4, h5, h6');
             const numbers = Array(6).fill(0); // 用于存储各级标题的编号
+            
+            // 检查是否只有一个h1标题
+            const h1Headings = area.querySelectorAll('h1');
+            const skipH1Numbering = h1Headings.length === 1;
 
             headings.forEach(heading => {
                 const level = parseInt(heading.tagName.substring(1)); // 获取标题级别
+                
+                // 如果只有一个h1标题，则跳过h1编号
+                if (skipH1Numbering && level === 1) {
+                    return;
+                }
 
                 if (level >= CONSTANTS.HEADING_NUMBER.START_LEVEL &&
                     level <= CONSTANTS.HEADING_NUMBER.END_LEVEL) {
@@ -1146,6 +1155,37 @@ $$([^\$$
             const numbers = Array(6).fill(0);
             let inCodeBlock = false;
             let codeBlockFence = '';
+            
+            // 统计h1标题数量，判断是否只有一个h1标题
+            let h1Count = 0;
+            for (const line of lines) {
+                const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
+                if (headingMatch && !inCodeBlock) {
+                    const level = headingMatch[1].length;
+                    if (level === 1) {
+                        h1Count++;
+                    }
+                }
+                
+                // 检测代码块边界
+                const codeBlockMatch = line.match(/^(\s*)(‍```|~~~)(.*)$/);
+                if (codeBlockMatch) {
+                    const [, indent, fence, language] = codeBlockMatch;
+                    if (!inCodeBlock) {
+                        // 开始代码块
+                        inCodeBlock = true;
+                        codeBlockFence = fence;
+                    } else if (fence === codeBlockFence && indent.length === 0) {
+                        // 结束代码块（需要相同的围栏符号且在行首）
+                        inCodeBlock = false;
+                        codeBlockFence = '';
+                    }
+                }
+            }
+            
+            // 重置状态
+            inCodeBlock = false;
+            codeBlockFence = '';
 
             const processedLines = lines.map(line => {
                 // 检测代码块边界
@@ -1179,6 +1219,11 @@ $$([^\$$
                 if (headingMatch && !hasInlineCode) {
                     const level = headingMatch[1].length;
                     const headingText = headingMatch[2];
+                    
+                    // 如果只有一个h1标题，则跳过h1编号
+                    if (h1Count === 1 && level === 1) {
+                        return line;
+                    }
 
                     if (level >= CONSTANTS.HEADING_NUMBER.START_LEVEL &&
                         level <= CONSTANTS.HEADING_NUMBER.END_LEVEL) {
@@ -1320,6 +1365,10 @@ $$([^\$$
 
                 await Utils.showNotification("发布到知乎：样式转换完成");
 
+                // 点击桌面按钮
+                const desktopButton = document.querySelector('.layout__wnd--active .protyle:not(.fn__none) .protyle-preview .protyle-preview__action > button[data-type="desktop"]');
+                desktopButton?.click();
+
                 // 点击原始知乎按钮
                 const originalZhihuButton = document.querySelector('.layout__wnd--active .protyle:not(.fn__none) .protyle-preview .protyle-preview__action > button[data-type="zhihu"]');
                 originalZhihuButton?.click();
@@ -1382,6 +1431,11 @@ $$([^\$$
 
                 // 复制到剪贴板
                 await Utils.copyToClipboard(processedContent);
+                
+                // 点击桌面按钮
+                const desktopButton = document.querySelector('.layout__wnd--active .protyle:not(.fn__none) .protyle-preview .protyle-preview__action > button[data-type="desktop"]');
+                desktopButton?.click();
+                
                 await Utils.showNotification("文档已处理完成并复制到剪贴板！", 3000);
 
             } catch (error) {
