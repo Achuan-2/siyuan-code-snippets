@@ -1012,6 +1012,33 @@ $$([^\$$
         }
 
         /**
+         * 从代码元素中提取纯文本内容
+         */
+        static extractPlainTextFromCode(codeElement) {
+            // 创建一个临时div来处理HTML内容
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = codeElement.innerHTML;
+
+            // 递归提取文本内容，保持换行符
+            const extractText = (node) => {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    return node.textContent;
+                } else if (node.nodeType === Node.ELEMENT_NODE) {
+                    if (node.tagName === 'BR') {
+                        return '\n';
+                    }
+                    let text = '';
+                    for (const child of node.childNodes) {
+                        text += extractText(child);
+                    }
+                    return text;
+                }
+                return '';
+            };
+
+            return extractText(tempDiv).trim();
+        }
+        /**
          * 直接处理代码元素的DOM内容
          */
         static processCodeElementForWechat(codeElement) {
