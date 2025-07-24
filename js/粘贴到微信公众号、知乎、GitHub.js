@@ -1,5 +1,7 @@
-// Version: 3.2
+// Version: 3.3
 // Author: Achuan-2
+// - v3.3/20250724
+//   - 修复微信公众号代码块粘贴没有高亮的问题，直接对DOM进行处理
 // - v3.2/20250723
 //   - 标题编号改进：如果全文只有一个h1标题，则不对h1标题进行编号，只对h2及更低标题进行编号
 //   - 修复知乎和Markdown按钮处理函数中缺少点击桌面按钮的问题
@@ -1003,69 +1005,74 @@ $$([^\$$
                     const codeElement = preElement.querySelector('code');
                     if (!codeElement) return;
 
-                    // 获取代码的纯文本内容
-                    const codeText = ContentProcessor.extractPlainTextFromCode(codeElement);
-
-                    // 处理换行符和空格
-                    const processedText = ContentProcessor.formatCodeForWechat(codeText);
-
-                    // 创建新的代码元素，保持原有的类名和样式
-                    const newCodeElement = document.createElement('code');
-
-                    // 复制原有的类名和属性
-                    Array.from(codeElement.attributes).forEach(attr => {
-                        newCodeElement.setAttribute(attr.name, attr.value);
-                    });
-
-                    // 设置处理后的HTML内容
-                    newCodeElement.innerHTML = processedText;
-
-                    // 替换原始代码元素
-                    codeElement.parentNode.replaceChild(newCodeElement, codeElement);
+                    // 直接遍历DOM并处理内容
+                    ContentProcessor.processCodeElementForWechat(codeElement);
                 });
             });
         }
 
         /**
-         * 格式化代码文本为微信公众号格式
+         * 直接处理代码元素的DOM内容
          */
-        static formatCodeForWechat(codeText) {
-            return codeText
-                // 将换行符转换为<br>标签
-                .replace(/\n/g, '<br>')
-                // 将连续的空格转换为&nbsp;
-                .replace(/ /g, '&nbsp;')
-                // 处理制表符
-                .replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;');
-        }
+        static processCodeElementForWechat(codeElement) {
+            // 创建TreeWalker来遍历所有文本节点
+            const walker = document.createTreeWalker(
+                codeElement,
+                NodeFilter.SHOW_TEXT,
+                null,
+                false
+            );
 
-        /**
-         * 从代码元素中提取纯文本内容
-         */
-        static extractPlainTextFromCode(codeElement) {
-            // 创建一个临时div来处理HTML内容
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = codeElement.innerHTML;
+            const textNodes = [];
+            let node;
+            while (node = walker.nextNode()) {
+                textNodes.push(node);
+            }
 
-            // 递归提取文本内容，保持换行符
-            const extractText = (node) => {
-                if (node.nodeType === Node.TEXT_NODE) {
-                    return node.textContent;
-                } else if (node.nodeType === Node.ELEMENT_NODE) {
-                    if (node.tagName === 'BR') {
-                        return '\n';
+            // 处理每个文本节点
+            textNodes.forEach(textNode => {
+                const originalText = textNode.textContent;
+                const processedText = originalText
+                    // 将换行符转换为<br>标签
+                    .replace(/\n/g, '<br>')
+                    // 将连续的空格转换为&nbsp;
+                    .replace(/ /g, '&nbsp;')
+                    // 处理制表符
+                    .replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;');
+
+                // 如果文本内容发生了变化，需要替换文本节点
+                if (processedText !== originalText) {
+                    // 创建一个临时容器来解析HTML
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = processedText;
+
+                    // 将临时容器的内容插入到文本节点的位置
+                    const fragment = document.createDocumentFragment();
+                    while (tempDiv.firstChild) {
+                        fragment.appendChild(tempDiv.firstChild);
                     }
-                    let text = '';
-                    for (const child of node.childNodes) {
-                        text += extractText(child);
-                    }
-                    return text;
+
+                    // 替换原始文本节点
+                    textNode.parentNode.insertBefore(fragment, textNode);
+                    textNode.parentNode.removeChild(textNode);
                 }
-                return '';
-            };
+            });
 
-            return extractText(tempDiv).trim();
+            // 处理<br>标签，确保它们被正确处理
+            const brElements = codeElement.querySelectorAll('br');
+            brElements.forEach(br => {
+                // 如果<br>标签后面紧跟着文本节点，确保格式正确
+                const nextSibling = br.nextSibling;
+                if (nextSibling && nextSibling.nodeType === Node.TEXT_NODE) {
+                    const text = nextSibling.textContent;
+                    if (text.startsWith('\n')) {
+                        // 移除文本节点开头的换行符，因为已经用<br>替代了
+                        nextSibling.textContent = text.substring(1);
+                    }
+                }
+            });
         }
+
 
     }
 
