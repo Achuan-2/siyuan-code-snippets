@@ -1,5 +1,6 @@
 // Version: 3.3
 // Author: Achuan-2
+// link: https://github.com/Achuan-2/siyuan-code-snippets/blob/main/js/%E7%B2%98%E8%B4%B4%E5%88%B0%E5%BE%AE%E4%BF%A1%E5%85%AC%E4%BC%97%E5%8F%B7%E3%80%81%E7%9F%A5%E4%B9%8E%E3%80%81GitHub.js
 // - v3.3/20250724
 //   - 修复微信公众号代码块粘贴没有高亮的问题，直接对DOM进行处理
 // - v3.2/20250723
