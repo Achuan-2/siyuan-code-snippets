@@ -1430,12 +1430,27 @@ $$([^\$$
                 const imageHostSelect = document.querySelector('.image-host-select');
                 const imageHostType = imageHostSelect ? imageHostSelect.value : CONSTANTS.IMAGE_HOST_TYPE.DEFAULT;
 
-                // 导出markdown内容
-                const markdownContent = await ButtonHandler.exportMarkdownContent(docId);
+                // 检测h1标题情况
+                const h1Info = await ButtonHandler.detectH1Heading(docId);
+                let markdownContent;
+                
+                if (h1Info.hasOnlyOneH1 && h1Info.h1Id) {
+                    // 如果只有一个h1标题，使用该h1的id导出内容
+                    markdownContent = await ButtonHandler.exportMarkdownContent(h1Info.h1Id);
+                } else {
+                    // 否则使用整个文档导出
+                    markdownContent = await ButtonHandler.exportMarkdownContent(docId);
+                }
+                
                 let processedContent = markdownContent;
 
                 // 清理零宽字符
                 processedContent = ButtonHandler.removeZeroWidthCharacters(processedContent);
+
+                // 如果使用了h1子内容导出，需要调整标题层级
+                if (h1Info.hasOnlyOneH1 && h1Info.h1Id) {
+                    processedContent = ButtonHandler.adjustHeadingLevels(processedContent);
+                }
 
                 // 获取标题编号选项
                 const headingNumberSelect = document.querySelector('.heading-number-select');
@@ -1477,6 +1492,143 @@ $$([^\$$
                 console.error('处理文档时出错:', error);
                 await Utils.showNotification(`处理失败: ${error.message}`, 5000);
             }
+        }
+
+        /**
+         * 检测文档中的h1标题情况
+         */
+        static async detectH1Heading(docId) {
+            try {
+                // 直接从DOM查找当前文档的标题元素
+                const activeProtyle = document.querySelector('.protyle:not(.fn__none) .b3-typography');
+                if (!activeProtyle) {
+                    return { hasOnlyOneH1: false, h1Id: null, firstH1Id: null };
+                }
+                
+                // 查找所有标题元素
+                const h1Elements = activeProtyle.querySelectorAll('h1');
+
+                
+                // 检查是否只有一个h1标题
+                const hasOnlyOneH1 = h1Elements.length === 1;
+                let firstH1Id = null;
+                let isFirstHeading = false;
+                
+                if (hasOnlyOneH1 && h1Elements.length > 0) {
+                    const h1Element = h1Elements[0];
+                    firstH1Id = h1Element.getAttribute('id');
+                    
+                    // 检查h1是否是第一个标题（在它之前没有其他标题）
+                    const h1Index = Array.from(h1Elements).indexOf(h1Element);
+                    isFirstHeading = h1Index === 0;
+                }
+                
+                return {
+                    hasOnlyOneH1: hasOnlyOneH1 && isFirstHeading,
+                    h1Id: hasOnlyOneH1 && isFirstHeading ? firstH1Id : null,
+                    firstH1Id: firstH1Id
+                };
+            } catch (error) {
+                console.error('检测h1标题时出错:', error);
+                return { hasOnlyOneH1: false, h1Id: null, firstH1Id: null };
+            }
+        }
+
+        /**
+         * 调整标题层级（将最高级别的标题调整为h1）
+         */
+        static adjustHeadingLevels(content) {
+            const lines = content.split('\n');
+            let inCodeBlock = false;
+            let codeBlockFence = '';
+            let minHeadingLevel = 7; // 初始化为一个大于6的值
+            
+            // 第一遍扫描：找到最小的标题层级
+            for (const line of lines) {
+                // 检测代码块边界
+                const codeBlockMatch = line.match(/^(\s*)(```|~~~)(.*)$/);
+                if (codeBlockMatch) {
+                    const [, indent, fence, language] = codeBlockMatch;
+                    if (!inCodeBlock) {
+                        inCodeBlock = true;
+                        codeBlockFence = fence;
+                    } else if (fence === codeBlockFence && indent.length === 0) {
+                        inCodeBlock = false;
+                        codeBlockFence = '';
+                    }
+                    continue;
+                }
+                
+                // 如果在代码块内，跳过
+                if (inCodeBlock) {
+                    continue;
+                }
+                
+                // 检测行内代码块
+                const inlineCodeCount = (line.match(/`/g) || []).length;
+                const hasInlineCode = inlineCodeCount >= 2 && inlineCodeCount % 2 === 0;
+                
+                // 检测标题
+                const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
+                if (headingMatch && !hasInlineCode) {
+                    const level = headingMatch[1].length;
+                    minHeadingLevel = Math.min(minHeadingLevel, level);
+                }
+            }
+            
+            // 如果没有找到标题或最小层级已经是1，直接返回原内容
+            if (minHeadingLevel >= 7 || minHeadingLevel === 1) {
+                return content;
+            }
+            
+            // 计算需要调整的层级差
+            const levelAdjustment = minHeadingLevel - 1;
+            
+            // 重置状态进行第二遍处理
+            inCodeBlock = false;
+            codeBlockFence = '';
+            
+            // 第二遍处理：调整标题层级
+            const processedLines = lines.map(line => {
+                // 检测代码块边界
+                const codeBlockMatch = line.match(/^(\s*)(```|~~~)(.*)$/);
+                if (codeBlockMatch) {
+                    const [, indent, fence, language] = codeBlockMatch;
+                    if (!inCodeBlock) {
+                        inCodeBlock = true;
+                        codeBlockFence = fence;
+                    } else if (fence === codeBlockFence && indent.length === 0) {
+                        inCodeBlock = false;
+                        codeBlockFence = '';
+                    }
+                    return line;
+                }
+                
+                // 如果在代码块内，直接返回原行
+                if (inCodeBlock) {
+                    return line;
+                }
+                
+                // 检测行内代码块
+                const inlineCodeCount = (line.match(/`/g) || []).length;
+                const hasInlineCode = inlineCodeCount >= 2 && inlineCodeCount % 2 === 0;
+                
+                // 处理标题
+                const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
+                if (headingMatch && !hasInlineCode) {
+                    const currentLevel = headingMatch[1].length;
+                    const newLevel = Math.max(1, currentLevel - levelAdjustment);
+                    const headingText = headingMatch[2];
+                    
+                    // 确保新层级不超过6
+                    const finalLevel = Math.min(6, newLevel);
+                    return `${'#'.repeat(finalLevel)} ${headingText}`;
+                }
+                
+                return line;
+            });
+            
+            return processedLines.join('\n');
         }
 
         /**
