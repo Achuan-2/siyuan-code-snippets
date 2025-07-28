@@ -1,6 +1,8 @@
 // Version: 3.3
 // Author: Achuan-2
 // link: https://github.com/Achuan-2/siyuan-code-snippets/blob/main/js/%E7%B2%98%E8%B4%B4%E5%88%B0%E5%BE%AE%E4%BF%A1%E5%85%AC%E4%BC%97%E5%8F%B7%E3%80%81%E7%9F%A5%E4%B9%8E%E3%80%81GitHub.js
+// - v3.4/20250728
+//   - 优化复制markdown，支持获取聚焦块内容
 // - v3.3/20250724
 //   - 修复微信公众号代码块粘贴没有高亮的问题，直接对DOM进行处理
 // - v3.2/20250723
@@ -144,6 +146,19 @@
             const activeDocElement = document.querySelector('.protyle:not(.fn__none) .protyle-content .protyle-background[data-node-id]');
             return activeDocElement?.getAttribute('data-node-id') || null;
         }
+        static getProtyle() {
+        // Author: wilsons
+        try {
+            if (document.getElementById("sidebar")) return window.siyuan.mobile.editor.protyle;
+            const currDoc = window.siyuan?.layout?.centerLayout?.children.map(item => item.children.find(item => item.headElement?.classList.contains('item--focus') && (item.panelElement.closest('.layout__wnd--active') || item.panelElement.closest('[data-type="wnd"]')))).find(item => item);
+            return currDoc?.model.editor.protyle;
+        } catch (e) {
+            console.error(e);
+            return null;
+            }
+            
+        }
+
 
         /**
          * 获取文档属性
@@ -1421,7 +1436,9 @@ $$([^\$$
             await Utils.showNotification("正在处理文档导出到Markdown...", 3000);
 
             try {
+                const protyle = Utils.getProtyle();
                 const docId = Utils.getCurrentDocumentId();
+                const id = protyle.block.id || protyle.options.blockId || protyle.block.parentID;
                 if (!docId) {
                     throw new Error('无法获取当前文档ID');
                 }
@@ -1432,16 +1449,7 @@ $$([^\$$
 
                 // 检测h1标题情况
                 const h1Info = await ButtonHandler.detectH1Heading(docId);
-                let markdownContent;
-                
-                if (h1Info.hasOnlyOneH1 && h1Info.h1Id) {
-                    // 如果只有一个h1标题，使用该h1的id导出内容
-                    markdownContent = await ButtonHandler.exportMarkdownContent(h1Info.h1Id);
-                } else {
-                    // 否则使用整个文档导出
-                    markdownContent = await ButtonHandler.exportMarkdownContent(docId);
-                }
-                
+                let markdownContent = await ButtonHandler.exportMarkdownContent(id);
                 let processedContent = markdownContent;
 
                 // 清理零宽字符
@@ -1643,7 +1651,7 @@ $$([^\$$
          * 导出markdown内容
          */
         static async exportMarkdownContent(docId) {
-            const data = { id: docId, yfm: false };
+            const data = { id: docId, yfm: false, fillCSSVar: true };
             const res = await Utils.fetchSyncPost('/api/export/exportMdContent', data);
 
             if (!res?.data?.content) {
