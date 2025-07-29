@@ -1455,10 +1455,6 @@ $$([^\$$
                 // 清理零宽字符
                 processedContent = ButtonHandler.removeZeroWidthCharacters(processedContent);
 
-                // 如果使用了h1子内容导出，需要调整标题层级
-                if (h1Info.hasOnlyOneH1 && h1Info.h1Id) {
-                    processedContent = ButtonHandler.adjustHeadingLevels(processedContent);
-                }
 
                 // 获取标题编号选项
                 const headingNumberSelect = document.querySelector('.heading-number-select');
@@ -1651,7 +1647,7 @@ $$([^\$$
          * 导出markdown内容
          */
         static async exportMarkdownContent(docId) {
-            const data = { id: docId, yfm: false, fillCSSVar: true };
+            const data = { id: docId, yfm: false, fillCSSVar: true, adjustHeadingLevel: true };
             const res = await Utils.fetchSyncPost('/api/export/exportMdContent', data);
 
             if (!res?.data?.content) {
