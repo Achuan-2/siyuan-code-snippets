@@ -1116,7 +1116,40 @@ $$([^\$$
             });
         }
 
-
+        /**
+         * 删除带有title属性的h1标题
+         */
+        static removeTitleH1() {
+            const typographyAreas = document.querySelectorAll('.b3-typography');
+            
+            typographyAreas.forEach(area => {
+                const h1Elements = area.querySelectorAll('h1[title]');
+                
+                h1Elements.forEach(h1 => {
+                    // 检查父元素是否只包含这个h1元素（忽略空白文本节点）
+                    const parent = h1.parentElement;
+                    if (parent && parent.tagName === 'P') {
+                        // 检查p标签是否只包含h1和空白内容
+                        const childNodes = Array.from(parent.childNodes);
+                        const hasOnlyH1 = childNodes.every(node => {
+                            return node === h1 || 
+                                   (node.nodeType === Node.TEXT_NODE && !node.textContent.trim());
+                        });
+                        
+                        if (hasOnlyH1) {
+                            // 删除整个p标签
+                            parent.remove();
+                        } else {
+                            // 只删除h1元素
+                            h1.remove();
+                        }
+                    } else {
+                        // 直接删除h1元素
+                        h1.remove();
+                    }
+                });
+            });
+        }
     }
 
     // 标题编号处理类
@@ -1205,7 +1238,7 @@ $$([^\$$
             const numbers = Array(6).fill(0);
             let inCodeBlock = false;
             let codeBlockFence = '';
-            
+
             // 统计h1标题数量，判断是否只有一个h1标题
             let h1Count = 0;
             for (const line of lines) {
@@ -1319,6 +1352,9 @@ $$([^\$$
             await Utils.showNotification("发布到微信公众号：样式转换ing");
 
             try {
+                // 删除带有title属性的h1标题
+                ContentProcessor.removeTitleH1();
+
                 // 根据图床类型处理图片URL
                 if (imageHostType === CONSTANTS.IMAGE_HOST_TYPE.PICGO) {
                     const docId = Utils.getCurrentDocumentId();
@@ -1375,6 +1411,9 @@ $$([^\$$
             await Utils.showNotification("发布到知乎：样式转换ing");
 
             try {
+                // 删除带有title属性的h1标题
+                ContentProcessor.removeTitleH1();
+
                 // 获取图床选择
                 const imageHostSelect = document.querySelector('.image-host-select');
                 const imageHostType = imageHostSelect ? imageHostSelect.value : CONSTANTS.IMAGE_HOST_TYPE.DEFAULT;
