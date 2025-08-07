@@ -1,6 +1,8 @@
-// Version: 3.5
+// Version: 3.6
 // Author: Achuan-2
 // link: https://github.com/Achuan-2/siyuan-code-snippets/blob/main/js/%E7%B2%98%E8%B4%B4%E5%88%B0%E5%BE%AE%E4%BF%A1%E5%85%AC%E4%BC%97%E5%8F%B7%E3%80%81%E7%9F%A5%E4%B9%8E%E3%80%81GitHub.js
+// - v3.6/20250807
+//   - 优化获取当前文档ID和图床选择逻辑
 // - v3.5/20250806
 //   - 优化微信公众号列表段落块与子列表混排的错乱问题
 // - v3.4/20250728
@@ -145,14 +147,14 @@
          * 获取当前文档ID
          */
         static getCurrentDocumentId() {
-            const activeDocElement = document.querySelector('.protyle:not(.fn__none) .protyle-content .protyle-background[data-node-id]');
+            const activeDocElement = document.querySelector('.layout__wnd--active .protyle:not(.fn__none) .protyle-content .protyle-background[data-node-id]');
             return activeDocElement?.getAttribute('data-node-id') || null;
         }
         static getProtyle() {
         // Author: wilsons
         try {
             if (document.getElementById("sidebar")) return window.siyuan.mobile.editor.protyle;
-            const currDoc = window.siyuan?.layout?.centerLayout?.children.map(item => item.children.find(item => item.headElement?.classList.contains('item--focus') && (item.panelElement.closest('.layout__wnd--active') || item.panelElement.closest('[data-type="wnd"]')))).find(item => item);
+            const currDoc = window.siyuan?.layout?.centerLayout?.children.map(item => item.children.find(item => item.headElement?.classList.contains('item--focus') && (item.panelElement.closest('.layout__wnd--active')))).find(item => item);
             return currDoc?.model.editor.protyle;
         } catch (e) {
             console.error(e);
@@ -1431,11 +1433,11 @@ $$([^\$$
          * 微信公众号按钮点击处理
          */
         static async handleWechatButtonClick(event) {
-            const button = event.currentTarget;
-            const wrapper = button.closest('.mp-wechat-enhanced-controls');
-            const select = wrapper?.querySelector('.link-conversion-select');
-            const headingNumberSelect = wrapper?.querySelector('.heading-number-select');
-            const imageHostSelect = wrapper?.querySelector('.image-host-select');
+            // 在当前激活窗口 + 活动编辑器中查找当前文档的动作容器，避免跨文档串扰
+            const activeContainer = document.querySelector('.layout__wnd--active .protyle:not(.fn__none) .protyle-preview .protyle-preview__action');
+            const select = activeContainer?.querySelector('.link-conversion-select');
+            const headingNumberSelect = activeContainer?.querySelector('.heading-number-select');
+            const imageHostSelect = activeContainer?.querySelector('.image-host-select');
             const linkConversionOption = select ? select.value : 'convert';
             const addHeadingNumbers = headingNumberSelect ? headingNumberSelect.value === 'yes' : false;
             const imageHostType = imageHostSelect ? imageHostSelect.value : CONSTANTS.IMAGE_HOST_TYPE.DEFAULT;
@@ -1508,8 +1510,9 @@ $$([^\$$
                 // 删除带有title属性的h1标题
                 ContentProcessor.removeTitleH1();
 
-                // 获取图床选择
-                const imageHostSelect = document.querySelector('.image-host-select');
+                // 获取图床选择（限定当前激活窗口与活动编辑器）
+                const activeContainer = document.querySelector('.layout__wnd--active .protyle:not(.fn__none) .protyle-preview .protyle-preview__action');
+                const imageHostSelect = activeContainer?.querySelector('.image-host-select');
                 const imageHostType = imageHostSelect ? imageHostSelect.value : CONSTANTS.IMAGE_HOST_TYPE.DEFAULT;
 
                 // 根据图床类型处理图片URL
@@ -1526,7 +1529,7 @@ $$([^\$$
                 // 使用默认图床时，知乎不需要特殊处理
 
                 // 添加标题编号
-                const headingNumberSelect = document.querySelector('.heading-number-select');
+                const headingNumberSelect = activeContainer?.querySelector('.heading-number-select');
                 const addHeadingNumbers = headingNumberSelect ? headingNumberSelect.value === 'yes' : false;
                 if (addHeadingNumbers) {
                     HeadingNumberProcessor.addNumbersToHTMLHeadings();
@@ -1576,8 +1579,9 @@ $$([^\$$
                     throw new Error('无法获取当前文档ID');
                 }
 
-                // 获取图床选择
-                const imageHostSelect = document.querySelector('.image-host-select');
+                // 获取图床选择（限定当前激活窗口与活动编辑器）
+                const activeContainer = document.querySelector('.layout__wnd--active .protyle:not(.fn__none) .protyle-preview .protyle-preview__action');
+                const imageHostSelect = activeContainer?.querySelector('.image-host-select');
                 const imageHostType = imageHostSelect ? imageHostSelect.value : CONSTANTS.IMAGE_HOST_TYPE.DEFAULT;
 
                 // 检测h1标题情况
@@ -1589,8 +1593,8 @@ $$([^\$$
                 processedContent = ButtonHandler.removeZeroWidthCharacters(processedContent);
 
 
-                // 获取标题编号选项
-                const headingNumberSelect = document.querySelector('.heading-number-select');
+                // 获取标题编号选项（限定当前激活窗口与活动编辑器）
+                const headingNumberSelect = activeContainer?.querySelector('.heading-number-select');
                 const addHeadingNumbers = headingNumberSelect ? headingNumberSelect.value === 'yes' : false;
 
                 // 添加标题编号
@@ -1797,7 +1801,7 @@ $$([^\$$
          * 添加自定义按钮
          */
         static addCustomButton() {
-            const actionContainers = document.querySelectorAll('.protyle-preview .protyle-preview__action');
+            const actionContainers = document.querySelectorAll('.layout__wnd--active .protyle:not(.fn__none) .protyle-preview .protyle-preview__action');
 
             actionContainers.forEach(container => {
                 // 检查是否已添加按钮以避免重复
