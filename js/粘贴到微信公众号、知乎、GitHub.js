@@ -308,7 +308,10 @@ $$([^\$$
         }
 
         /**
-         * 为markdown中的相对路径图片添加默认前缀
+         * 为导出内容中的相对路径图片添加默认前缀
+         * 兼容：
+         * - markdown 图片语法：![](...)
+         * - HTML img 标签：<img src="..."> 或 data-src="..."
          */
         static addDefaultPrefixToImages(content) {
             try {
@@ -318,9 +321,9 @@ $$([^\$$
 
                 const processedLines = lines.map(line => {
                     // 检测代码块边界
-                    const codeBlockMatch = line.match(/^(\s*)(‍```|~~~)(.*)$/);
+                    const codeBlockMatch = line.match(/^(\s*)(```|~~~)(.*)$/);
                     if (codeBlockMatch) {
-                        const [, indent, fence, language] = codeBlockMatch;
+                        const [, indent, fence] = codeBlockMatch;
                         if (!inCodeBlock) {
                             // 开始代码块
                             inCodeBlock = true;
@@ -347,15 +350,34 @@ $$([^\$$
                         return line;
                     }
 
-                    // 匹配markdown图片语法中的相对路径（不以http开头的路径）
-                    const imageRegex = /!\[([^\]]*)\]\((?!https?:\/\/)([^)]+)\)/g;
+                    let processedLine = line;
 
-                    return line.replace(imageRegex, (match, altText, imagePath) => {
-                        // 如果路径以/开头，去掉开头的/
+                    // 1) 处理 markdown 图片语法中的相对路径（不以http/https开头）
+                    const mdImgRelativeRegex = /!\[([^\]]*)\]\(((?!https?:\/\/)[^)]+)\)/g;
+                    processedLine = processedLine.replace(mdImgRelativeRegex, (match, altText, imagePath) => {
                         const cleanPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
                         const fullUrl = CONSTANTS.DEFAULT_IMAGE_PREFIX + cleanPath;
                         return `![${altText}](${fullUrl})`;
                     });
+
+                    // 2) 处理 HTML img 标签中的相对路径 src 或 data-src
+                    // 匹配 src="..." 或 src='...' 且不是 http(s)
+                    const imgAttrRelativeDouble = /\s(src|data-src)\s*=\s*"((?!https?:\/\/)[^"]+)"/g;
+                    const imgAttrRelativeSingle = /\s(src|data-src)\s*=\s*'((?!https?:\/\/)[^']+)'/g;
+
+                    processedLine = processedLine.replace(imgAttrRelativeDouble, (m, attr, val) => {
+                        const cleanPath = val.startsWith('/') ? val.slice(1) : val;
+                        const fullUrl = CONSTANTS.DEFAULT_IMAGE_PREFIX + cleanPath;
+                        return ` ${attr}="${fullUrl}"`;
+                    });
+
+                    processedLine = processedLine.replace(imgAttrRelativeSingle, (m, attr, val) => {
+                        const cleanPath = val.startsWith('/') ? val.slice(1) : val;
+                        const fullUrl = CONSTANTS.DEFAULT_IMAGE_PREFIX + cleanPath;
+                        return ` ${attr}='${fullUrl}'`;
+                    });
+
+                    return processedLine;
                 });
 
                 return processedLines.join('\n');
@@ -1756,9 +1778,10 @@ $$([^\$$
 
         /**
          * 导出markdown内容
+         * imgTag 设为 true 表示思源将使用 <img> 标签导出图片
          */
         static async exportMarkdownContent(docId) {
-            const data = { id: docId, yfm: false, fillCSSVar: true, adjustHeadingLevel: true,imgToTag: true };
+            const data = { id: docId, yfm: false, fillCSSVar: true, adjustHeadingLevel: true, imgTag: true };
             const res = await Utils.fetchSyncPost('/api/export/exportMdContent', data);
 
             if (!res?.data?.content) {
