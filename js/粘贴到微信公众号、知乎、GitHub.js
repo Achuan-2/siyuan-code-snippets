@@ -1758,7 +1758,7 @@ $$([^\$$
          * 导出markdown内容
          */
         static async exportMarkdownContent(docId) {
-            const data = { id: docId, yfm: false, fillCSSVar: true, adjustHeadingLevel: true };
+            const data = { id: docId, yfm: false, fillCSSVar: true, adjustHeadingLevel: true,imgToTag: true };
             const res = await Utils.fetchSyncPost('/api/export/exportMdContent', data);
 
             if (!res?.data?.content) {
