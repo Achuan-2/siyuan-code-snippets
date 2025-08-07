@@ -3,6 +3,7 @@
 // link: https://github.com/Achuan-2/siyuan-code-snippets/blob/main/js/%E7%B2%98%E8%B4%B4%E5%88%B0%E5%BE%AE%E4%BF%A1%E5%85%AC%E4%BC%97%E5%8F%B7%E3%80%81%E7%9F%A5%E4%B9%8E%E3%80%81GitHub.js
 // - v3.6/20250807
 //   - 优化获取当前文档ID和图床选择逻辑
+//   - 导出markdown默认导出img标签，替换图床兼容 markdown 图片语法和 HTML img 标签
 // - v3.5/20250806
 //   - 优化微信公众号列表段落块与子列表混排的错乱问题
 // - v3.4/20250728
