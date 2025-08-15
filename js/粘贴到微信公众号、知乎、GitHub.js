@@ -48,7 +48,7 @@
             nickname: "Achuan同学",
             alias: "achuan-2-0713",
             headimg: "http://mmbiz.qpic.cn/mmbiz_png/Xh9XDwqibetTAnPRk6Z89m8u4nibAvLwuIm7icHFHtOklSNqoibTaurdMzWJojPoJzcbcJcySOJaEziavibfibOfY7DiaQ/0?wx_fmt=png",
-            signature: "研究生在读，记录自己的学习感悟和笔记。",
+            signature: "研究生在读，记录自己的学习笔记和日常感悟",
             id: "MzU3ODg2NTc3MA==",
             introduction: "这里是Achuan同学，分享自己的学习笔记和生活随笔，欢迎点赞评论转发我的文章"
         },
