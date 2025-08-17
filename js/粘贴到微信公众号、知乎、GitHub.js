@@ -43,6 +43,8 @@
             DEFAULT: "default",
             PICGO: "picgo"
         },
+        // 是否添加微信公众号名片
+        ADD_WECHAT_CARD: false,
         // 微信公众号卡片（获取方法：在微信公众号的草稿页面手动插入公众号卡片后，开发者工具查看源码，修改下面的参数）
         WECHAT_PROFILE: {
             nickname: "Achuan同学",
@@ -78,6 +80,7 @@
             END_LEVEL: 6,   // 到H6结束编号
             SEPARATOR: '.'  // 编号分隔符
         }
+
     };
 
     // 工具函数类
@@ -1482,7 +1485,9 @@ $$([^\$$
 
                 // 处理内容
                 ContentProcessor.replaceHrWithImage();
-                ContentProcessor.addWeChatCard();
+                if (CONSTANTS.ADD_WECHAT_CARD) {
+                    ContentProcessor.addWeChatCard();
+                }
                 ContentProcessor.processBlockquote();
 
                 // 点击桌面按钮
@@ -1849,10 +1854,14 @@ $$([^\$$
             // 创建图床选择下拉框
             const imageHostSelect = UIManager.createImageHostSelect();
 
+            // 创建是否添加公众号名片选择下拉框
+            const wechatCardSelect = UIManager.createWeChatCardSelect();
+
             controlsWrapper.appendChild(wechatButton);
             controlsWrapper.appendChild(linkSelect);
             controlsWrapper.appendChild(headingSelect);
             controlsWrapper.appendChild(imageHostSelect);
+            controlsWrapper.appendChild(wechatCardSelect);
 
             // 插入到容器中
             const originalWechatButton = container.querySelector('button[data-type="mp-wechat"]');
@@ -2001,6 +2010,38 @@ $$([^\$$
                 option.textContent = text;
                 option.selected = selected || false;
                 select.appendChild(option);
+            });
+
+            return select;
+        }
+
+        /**
+         * 创建是否添加公众号名片选择下拉框
+         */
+        static createWeChatCardSelect() {
+            const select = document.createElement('select');
+            select.className = 'wechat-card-select b3-select';
+            Object.assign(select.style, {
+                height: '24px',
+                fontSize: '12px',
+                minWidth: '100px'
+            });
+
+            const options = [
+                { value: 'yes', text: '添加名片', selected: true },
+                { value: 'no', text: '不添加名片', selected: false }
+            ];
+
+            options.forEach(({ value, text, selected }) => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = text;
+                option.selected = selected;
+                select.appendChild(option);
+            });
+
+            select.addEventListener('change', (event) => {
+                CONSTANTS.ADD_WECHAT_CARD = event.target.value === 'yes';
             });
 
             return select;
