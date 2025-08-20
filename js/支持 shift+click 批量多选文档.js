@@ -2,14 +2,24 @@
     let lastClickedItem = null;
 
     function handleFileClick(event) {
+        const currentItem = event.target.closest('li[data-type="navigation-file"]');
+        if (!currentItem) return;
+
         if (!event.shiftKey) {
             // 普通点击，记录最后点击的项目
-            lastClickedItem = event.target.closest('li[data-type="navigation-file"]');
+            lastClickedItem = currentItem;
             return;
         }
 
-        const currentItem = event.target.closest('li[data-type="navigation-file"]');
-        if (!currentItem || !lastClickedItem) return;
+        // Shift+点击时立即阻止默认行为和事件冒泡
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+        if (!lastClickedItem) {
+            lastClickedItem = currentItem;
+            return;
+        }
 
         // 获取所有文档项
         const allFiles = Array.from(document.querySelectorAll('li[data-type="navigation-file"]'));
@@ -33,18 +43,23 @@
         for (let i = start; i <= end; i++) {
             allFiles[i].classList.add('b3-list-item--focus');
         }
-
-        // 阻止默认行为
-        event.preventDefault();
-        event.stopPropagation();
     }
 
     function initShiftSelect() {
         // 移除可能存在的旧事件监听器
         document.removeEventListener('click', handleFileClick, true);
 
-        // 添加新的事件监听器
+        // 添加新的事件监听器，使用捕获阶段确保优先执行
         document.addEventListener('click', handleFileClick, true);
+
+        // 额外添加一个监听器来确保完全阻止shift+click的默认行为
+        document.addEventListener('click', function (event) {
+            if (event.shiftKey && event.target.closest('li[data-type="navigation-file"]')) {
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+            }
+        }, true);
     }
 
     // 初始化
