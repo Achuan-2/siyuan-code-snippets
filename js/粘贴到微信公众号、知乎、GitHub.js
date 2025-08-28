@@ -155,16 +155,16 @@
             return activeDocElement?.getAttribute('data-node-id') || null;
         }
         static getProtyle() {
-        // Author: wilsons
-        try {
-            if (document.getElementById("sidebar")) return window.siyuan.mobile.editor.protyle;
-            const currDoc = window.siyuan?.layout?.centerLayout?.children.map(item => item.children.find(item => item.headElement?.classList.contains('item--focus') && (item.panelElement.closest('.layout__wnd--active')))).find(item => item);
-            return currDoc?.model.editor.protyle;
-        } catch (e) {
-            console.error(e);
-            return null;
+            // Author: wilsons
+            try {
+                if (document.getElementById("sidebar")) return window.siyuan.mobile.editor.protyle;
+                const currDoc = window.siyuan?.layout?.centerLayout?.children.map(item => item.children.find(item => item.headElement?.classList.contains('item--focus') && (item.panelElement.closest('.layout__wnd--active')))).find(item => item);
+                return currDoc?.model.editor.protyle;
+            } catch (e) {
+                console.error(e);
+                return null;
             }
-            
+
         }
 
 
@@ -1218,10 +1218,10 @@ $$([^\$$
          */
         static removeTitleH1() {
             const typographyAreas = document.querySelectorAll('.b3-typography');
-            
+
             typographyAreas.forEach(area => {
                 const h1Elements = area.querySelectorAll('h1[title]');
-                
+
                 h1Elements.forEach(h1 => {
                     // 检查父元素是否只包含这个h1元素（忽略空白文本节点）
                     const parent = h1.parentElement;
@@ -1229,10 +1229,10 @@ $$([^\$$
                         // 检查p标签是否只包含h1和空白内容
                         const childNodes = Array.from(parent.childNodes);
                         const hasOnlyH1 = childNodes.every(node => {
-                            return node === h1 || 
-                                   (node.nodeType === Node.TEXT_NODE && !node.textContent.trim());
+                            return node === h1 ||
+                                (node.nodeType === Node.TEXT_NODE && !node.textContent.trim());
                         });
-                        
+
                         if (hasOnlyH1) {
                             // 删除整个p标签
                             parent.remove();
@@ -1268,14 +1268,14 @@ $$([^\$$
         static processHeadingsInArea(area) {
             const headings = area.querySelectorAll('h1, h2, h3, h4, h5, h6');
             const numbers = Array(6).fill(0); // 用于存储各级标题的编号
-            
+
             // 检查是否只有一个h1标题
             const h1Headings = area.querySelectorAll('h1');
             const skipH1Numbering = h1Headings.length === 1;
 
             headings.forEach(heading => {
                 const level = parseInt(heading.tagName.substring(1)); // 获取标题级别
-                
+
                 // 如果只有一个h1标题，则跳过h1编号
                 if (skipH1Numbering && level === 1) {
                     return;
@@ -1346,7 +1346,7 @@ $$([^\$$
                         h1Count++;
                     }
                 }
-                
+
                 // 检测代码块边界
                 const codeBlockMatch = line.match(/^(\s*)(‍```|~~~)(.*)$/);
                 if (codeBlockMatch) {
@@ -1362,7 +1362,7 @@ $$([^\$$
                     }
                 }
             }
-            
+
             // 重置状态
             inCodeBlock = false;
             codeBlockFence = '';
@@ -1399,7 +1399,7 @@ $$([^\$$
                 if (headingMatch && !hasInlineCode) {
                     const level = headingMatch[1].length;
                     const headingText = headingMatch[2];
-                    
+
                     // 如果只有一个h1标题，则跳过h1编号
                     if (h1Count === 1 && level === 1) {
                         return line;
@@ -1628,11 +1628,11 @@ $$([^\$$
 
                 // 复制到剪贴板
                 await Utils.copyToClipboard(processedContent);
-                
+
                 // 点击桌面按钮
                 const desktopButton = document.querySelector('.layout__wnd--active .protyle:not(.fn__none) .protyle-preview .protyle-preview__action > button[data-type="desktop"]');
                 desktopButton?.click();
-                
+
                 await Utils.showNotification("文档已处理完成并复制到剪贴板！", 3000);
 
             } catch (error) {
@@ -1651,25 +1651,25 @@ $$([^\$$
                 if (!activeProtyle) {
                     return { hasOnlyOneH1: false, h1Id: null, firstH1Id: null };
                 }
-                
+
                 // 查找所有标题元素
                 const h1Elements = activeProtyle.querySelectorAll('h1');
 
-                
+
                 // 检查是否只有一个h1标题
                 const hasOnlyOneH1 = h1Elements.length === 1;
                 let firstH1Id = null;
                 let isFirstHeading = false;
-                
+
                 if (hasOnlyOneH1 && h1Elements.length > 0) {
                     const h1Element = h1Elements[0];
                     firstH1Id = h1Element.getAttribute('id');
-                    
+
                     // 检查h1是否是第一个标题（在它之前没有其他标题）
                     const h1Index = Array.from(h1Elements).indexOf(h1Element);
                     isFirstHeading = h1Index === 0;
                 }
-                
+
                 return {
                     hasOnlyOneH1: hasOnlyOneH1 && isFirstHeading,
                     h1Id: hasOnlyOneH1 && isFirstHeading ? firstH1Id : null,
@@ -1689,7 +1689,7 @@ $$([^\$$
             let inCodeBlock = false;
             let codeBlockFence = '';
             let minHeadingLevel = 7; // 初始化为一个大于6的值
-            
+
             // 第一遍扫描：找到最小的标题层级
             for (const line of lines) {
                 // 检测代码块边界
@@ -1705,16 +1705,16 @@ $$([^\$$
                     }
                     continue;
                 }
-                
+
                 // 如果在代码块内，跳过
                 if (inCodeBlock) {
                     continue;
                 }
-                
+
                 // 检测行内代码块
                 const inlineCodeCount = (line.match(/`/g) || []).length;
                 const hasInlineCode = inlineCodeCount >= 2 && inlineCodeCount % 2 === 0;
-                
+
                 // 检测标题
                 const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
                 if (headingMatch && !hasInlineCode) {
@@ -1722,19 +1722,19 @@ $$([^\$$
                     minHeadingLevel = Math.min(minHeadingLevel, level);
                 }
             }
-            
+
             // 如果没有找到标题或最小层级已经是1，直接返回原内容
             if (minHeadingLevel >= 7 || minHeadingLevel === 1) {
                 return content;
             }
-            
+
             // 计算需要调整的层级差
             const levelAdjustment = minHeadingLevel - 1;
-            
+
             // 重置状态进行第二遍处理
             inCodeBlock = false;
             codeBlockFence = '';
-            
+
             // 第二遍处理：调整标题层级
             const processedLines = lines.map(line => {
                 // 检测代码块边界
@@ -1750,31 +1750,31 @@ $$([^\$$
                     }
                     return line;
                 }
-                
+
                 // 如果在代码块内，直接返回原行
                 if (inCodeBlock) {
                     return line;
                 }
-                
+
                 // 检测行内代码块
                 const inlineCodeCount = (line.match(/`/g) || []).length;
                 const hasInlineCode = inlineCodeCount >= 2 && inlineCodeCount % 2 === 0;
-                
+
                 // 处理标题
                 const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
                 if (headingMatch && !hasInlineCode) {
                     const currentLevel = headingMatch[1].length;
                     const newLevel = Math.max(1, currentLevel - levelAdjustment);
                     const headingText = headingMatch[2];
-                    
+
                     // 确保新层级不超过6
                     const finalLevel = Math.min(6, newLevel);
                     return `${'#'.repeat(finalLevel)} ${headingText}`;
                 }
-                
+
                 return line;
             });
-            
+
             return processedLines.join('\n');
         }
 
@@ -2000,8 +2000,8 @@ $$([^\$$
             });
 
             const options = [
-                { value: CONSTANTS.IMAGE_HOST_TYPE.DEFAULT, text: '默认图床', selected: true },
-                { value: CONSTANTS.IMAGE_HOST_TYPE.PICGO, text: 'PicGo图床', selected: false }
+                { value: CONSTANTS.IMAGE_HOST_TYPE.DEFAULT, text: '默认图床', selected: false },
+                { value: CONSTANTS.IMAGE_HOST_TYPE.PICGO, text: 'PicGo图床', selected: true }
             ];
 
             options.forEach(({ value, text, selected }) => {
