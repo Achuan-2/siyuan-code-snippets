@@ -4,6 +4,7 @@
 // - v3.6/20250807
 //   - 优化获取当前文档ID和图床选择逻辑
 //   - 导出markdown默认导出img标签，替换图床兼容 markdown 图片语法和 HTML img 标签
+//   - 新增：链接优先级选项（可以选择优先使用微信公众号链接或知乎链接），保存在 localStorage 中
 // - v3.5/20250806
 //   - 优化微信公众号列表段落块与子列表混排的错乱问题
 // - v3.4/20250728
@@ -45,6 +46,8 @@
         },
         // 是否添加微信公众号名片
         ADD_WECHAT_CARD: false,
+        // 块链接优先级：'wechat' 或 'zhihu'，可由 UI 控件修改并持久化到 localStorage
+        LINK_PRIORITY: localStorage.getItem('siyuan_link_priority') || 'wechat',
         // 微信公众号卡片（获取方法：在微信公众号的草稿页面手动插入公众号卡片后，开发者工具查看源码，修改下面的参数）
         WECHAT_PROFILE: {
             nickname: "Achuan同学",
@@ -412,22 +415,45 @@ $$([^\$$
                 if (!specificKey?.values?.length) return null;
 
                 if (Array.isArray(specificKey.values[0].mAsset)) {
-                    // 首先尝试查找微信链接
-                    const weixinLink = specificKey.values[0].mAsset.find(asset =>
-                        asset.content?.startsWith('https://mp.weixin.qq.com')
-                    );
+                    const assets = specificKey.values[0].mAsset;
 
-                    if (weixinLink) {
-                        console.log('Found WeChat link for block', blockId, ':', weixinLink.content);
-                        return weixinLink.content;
-                    }
+                    // 根据用户配置的优先级决定返回哪个平台的链接
+                    const priority = CONSTANTS.LINK_PRIORITY || 'wechat';
 
-                    // 如果没有微信链接，尝试查找其他平台链接
-                    const otherPlatformLinks = LinkProcessor.findOtherPlatformLinks(specificKey.values[0].mAsset);
+                    // 如果优先级为 zhihu，优先查找知乎链接
+                    if (priority === 'zhihu') {
+                        const zhihuCandidate = LinkProcessor.findOtherPlatformLinks(assets).find(l => l.platform === '知乎');
+                        if (zhihuCandidate) {
+                            console.log('Found Zhihu link for block', blockId, ':', zhihuCandidate.content);
+                            return zhihuCandidate.content;
+                        }
 
-                    if (otherPlatformLinks.length > 0) {
-                        console.log('Found alternative platform link for block', blockId, ':', otherPlatformLinks[0].content);
-                        return otherPlatformLinks[0].content;
+                        // 如果没有知乎链接，再尝试查找微信链接
+                        const weixinLink = assets.find(asset => asset.content?.startsWith('https://mp.weixin.qq.com'));
+                        if (weixinLink) {
+                            console.log('Found WeChat link for block', blockId, ':', weixinLink.content);
+                            return weixinLink.content;
+                        }
+
+                        // 最后尝试其他任意平台链接
+                        const otherPlatformLinks = LinkProcessor.findOtherPlatformLinks(assets);
+                        if (otherPlatformLinks.length > 0) {
+                            console.log('Found alternative platform link for block', blockId, ':', otherPlatformLinks[0].content);
+                            return otherPlatformLinks[0].content;
+                        }
+                    } else {
+                        // 默认或 'wechat' 优先逻辑（向后兼容）
+                        const weixinLink = assets.find(asset => asset.content?.startsWith('https://mp.weixin.qq.com'));
+                        if (weixinLink) {
+                            console.log('Found WeChat link for block', blockId, ':', weixinLink.content);
+                            return weixinLink.content;
+                        }
+
+                        const otherPlatformLinks = LinkProcessor.findOtherPlatformLinks(assets);
+                        if (otherPlatformLinks.length > 0) {
+                            console.log('Found alternative platform link for block', blockId, ':', otherPlatformLinks[0].content);
+                            return otherPlatformLinks[0].content;
+                        }
                     }
                 }
 
@@ -1448,7 +1474,10 @@ $$([^\$$
 
             await Utils.showNotification("发布到微信公众号：样式转换ing");
 
+            // 保存原始优先级并临时设置为 'wechat'
+            const originalPriority = CONSTANTS.LINK_PRIORITY;
             try {
+                CONSTANTS.LINK_PRIORITY = 'wechat';
                 // 删除带有title属性的h1标题
                 ContentProcessor.removeTitleH1();
 
@@ -1503,6 +1532,9 @@ $$([^\$$
             } catch (error) {
                 console.error('微信处理过程中出错:', error);
                 await Utils.showNotification(`处理失败: ${error.message}`);
+            } finally {
+                // 恢复原始优先级
+                try { CONSTANTS.LINK_PRIORITY = originalPriority; } catch (e) { }
             }
         }
 
@@ -1512,7 +1544,11 @@ $$([^\$$
         static async handleNewZhihuButtonClick(event) {
             await Utils.showNotification("发布到知乎：样式转换ing");
 
+            // 保存原始优先级以便 finally 中恢复
+            const originalPriority = CONSTANTS.LINK_PRIORITY;
             try {
+                // 临时设置优先级为 'zhihu'
+                CONSTANTS.LINK_PRIORITY = 'zhihu';
                 // 删除带有title属性的h1标题
                 ContentProcessor.removeTitleH1();
 
@@ -1568,6 +1604,9 @@ $$([^\$$
             } catch (error) {
                 console.error('知乎处理过程中出错:', error);
                 await Utils.showNotification(`处理失败: ${error.message}`);
+            } finally {
+                // 恢复原始优先级
+                try { CONSTANTS.LINK_PRIORITY = originalPriority; } catch (e) { }
             }
         }
 
@@ -1848,6 +1887,9 @@ $$([^\$$
             // 创建链接转换选择下拉框
             const linkSelect = UIManager.createLinkConversionSelect();
 
+            // 创建链接优先级选择下拉框（微信公众号 vs 知乎）
+            const linkPrioritySelect = UIManager.createLinkPrioritySelect();
+
             // 创建标题编号选择下拉框
             const headingSelect = UIManager.createHeadingNumberSelect();
 
@@ -1859,6 +1901,7 @@ $$([^\$$
 
             controlsWrapper.appendChild(wechatButton);
             controlsWrapper.appendChild(linkSelect);
+            controlsWrapper.appendChild(linkPrioritySelect);
             controlsWrapper.appendChild(headingSelect);
             controlsWrapper.appendChild(imageHostSelect);
             controlsWrapper.appendChild(wechatCardSelect);
@@ -1870,6 +1913,42 @@ $$([^\$$
             } else {
                 container.appendChild(controlsWrapper);
             }
+        }
+
+        /**
+         * 创建链接优先级选择下拉框
+         */
+        static createLinkPrioritySelect() {
+            const select = document.createElement('select');
+            select.className = 'link-priority-select b3-select';
+            Object.assign(select.style, {
+                height: '24px',
+                fontSize: '12px',
+                minWidth: '120px'
+            });
+
+            const current = localStorage.getItem('siyuan_link_priority') || CONSTANTS.LINK_PRIORITY || 'wechat';
+
+            const options = [
+                { value: 'wechat', text: '优先使用微信公众号链接', selected: current === 'wechat' },
+                { value: 'zhihu', text: '优先使用知乎链接', selected: current === 'zhihu' }
+            ];
+
+            options.forEach(({ value, text, selected }) => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = text;
+                option.selected = selected || false;
+                select.appendChild(option);
+            });
+
+            select.addEventListener('change', (event) => {
+                const val = event.target.value;
+                localStorage.setItem('siyuan_link_priority', val);
+                CONSTANTS.LINK_PRIORITY = val;
+            });
+
+            return select;
         }
 
         /**
@@ -2000,8 +2079,8 @@ $$([^\$$
             });
 
             const options = [
-                { value: CONSTANTS.IMAGE_HOST_TYPE.DEFAULT, text: '默认图床', selected: false },
-                { value: CONSTANTS.IMAGE_HOST_TYPE.PICGO, text: 'PicGo图床', selected: true }
+                { value: CONSTANTS.IMAGE_HOST_TYPE.DEFAULT, text: '默认图床', selected: true },
+                { value: CONSTANTS.IMAGE_HOST_TYPE.PICGO, text: 'PicGo图床', selected: false }
             ];
 
             options.forEach(({ value, text, selected }) => {
@@ -2028,8 +2107,8 @@ $$([^\$$
             });
 
             const options = [
-                { value: 'yes', text: '添加名片', selected: true },
-                { value: 'no', text: '不添加名片', selected: false }
+                { value: 'yes', text: '添加微信名片', selected: false },
+                { value: 'no', text: '不添加名片', selected: true }
             ];
 
             options.forEach(({ value, text, selected }) => {
