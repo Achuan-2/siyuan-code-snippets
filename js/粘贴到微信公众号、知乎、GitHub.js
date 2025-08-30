@@ -614,73 +614,7 @@ $$([^\$$
 
     // 列表处理类
     class ListProcessor {
-        /**
-         * 规整混排列表以适配微信公众号
-         * 规则：当同一 li 内出现两个及以上连续层级的 p 与 ul/ol 混排时，
-         * 从“第二个 P”起的所有后续兄弟（含紧随的列表）整体移出其外层列表，
-         * 并根据原有列表层级添加左侧缩进。
-         */
-        static normalizeMixedListForWeChat() {
-            const typographyAreas = document.querySelectorAll('.b3-typography');
-            typographyAreas.forEach(area => {
-                // 深度优先：由里向外，避免父级提前移动导致定位丢失
-                const lists = Array.from(area.querySelectorAll('ol, ul'))
-                    .sort((a, b) => ListProcessor.getListDepth(b) - ListProcessor.getListDepth(a));
-                lists.forEach(list => {
-                    const lis = Array.from(list.children).filter(n => n.tagName === 'LI');
-                    lis.forEach(li => {
-                        const children = Array.from(li.childNodes).filter(n => n.nodeType === Node.ELEMENT_NODE);
-                        if (children.length === 0) return;
-
-                        // 找到所有直接子级中的段落和列表块
-                        const pIndices = [];
-                        children.forEach((el, idx) => {
-                            if (el.tagName === 'P') pIndices.push(idx);
-                        });
-
-                        if (pIndices.length <= 1) return; // 小于等于1个 p，不处理
-
-                        // 从第二个 p 开始，连同其后的所有兄弟一起外移
-                        const cutIndex = pIndices[1];
-                        const toMove = children.slice(cutIndex); // 要移动的元素列表
-                        if (toMove.length === 0) return;
-
-                        // 计算当前 li 的列表层级
-                        const level = ListProcessor.getListDepth(li);
-                        const indentEm = Math.max(0, level) * 2; // 每层 2em
-
-                        // 在外层列表之后插入容器（保持与原外层相邻，避免破坏文档顺序）
-                        // 目标插入位置：找到 list 最近的块级父节点，紧随 list 之后
-                        const container = document.createElement('section');
-                        container.setAttribute('data-mp-fix', 'mixed-list');
-                        container.style.paddingLeft = `${indentEm}em`;
-
-                        // 将需要移动的节点先从 li 剪切，再放入 container
-                        toMove.forEach(el => container.appendChild(el));
-
-                        // 找到应插入的位置：list 的父节点
-                        const parentOfList = list.parentNode;
-                        if (!parentOfList) return;
-
-                        // 如果 li 仍有剩余内容且最后一个不是块级分隔，则在 li 尾部补空段以防粘连
-                        // 仅在 li 末尾没有段落时进行
-                        const liHasP = Array.from(li.children).some(n => n.tagName === 'P');
-                        if (!liHasP) {
-                            const filler = document.createElement('p');
-                            filler.innerHTML = '&#8203;';
-                            li.appendChild(filler);
-                        }
-
-                        // 将容器插在 list 之后，但要考虑 list 后可能紧跟其它节点
-                        if (list.nextSibling) {
-                            parentOfList.insertBefore(container, list.nextSibling);
-                        } else {
-                            parentOfList.appendChild(container);
-                        }
-                    });
-                });
-            });
-        }
+        // 已移除：微信公众号专用的混排列表处理逻辑
         /**
          * 预处理有序列表以适配知乎
          */
@@ -1504,8 +1438,6 @@ $$([^\$$
                 // 处理代码块格式
                 ContentProcessor.convertCodeBlocksForWechat();
 
-                // 规整混排列表（li 内第二个及以后的 p 与列表整体外移，按层级缩进）
-                ListProcessor.normalizeMixedListForWeChat();
 
                 // 处理链接转换
                 if (linkConversionOption === 'convert') {
