@@ -649,6 +649,36 @@ $$([^\$$
         }
 
         /**
+         * 将列表转换为：列表符号 + 纯文本段落 + 缩进（用于微信公众号）
+         * 逻辑与知乎处理相同，但作用于微信公众号场景，避免混排错乱
+         */
+        static processListsForWechat(rootArea) {
+            try {
+                // 只处理传入的区域，避免跨文档影响
+                const area = rootArea;
+                if (!area) return;
+
+                // 对嵌套的列表按深度从深到浅处理（与 processNestedLists 相同策略）
+                const orderedLists = Array.from(area.querySelectorAll('ol'));
+                const unorderedLists = Array.from(area.querySelectorAll('ul'));
+
+                const allLists = [...orderedLists, ...unorderedLists]
+                    .sort((a, b) => ListProcessor.getListDepth(b) - ListProcessor.getListDepth(a));
+
+                allLists.forEach(list => {
+                    const listDepth = ListProcessor.getListDepth(list);
+                    if (list.tagName === 'OL') {
+                        ListProcessor.processOrderedList(list, listDepth);
+                    } else {
+                        ListProcessor.processUnorderedList(list, listDepth);
+                    }
+                });
+            } catch (e) {
+                console.error('微信公众号列表处理出错:', e);
+            }
+        }
+
+        /**
          * 获取列表的嵌套深度
          */
         static getListDepth(list) {
@@ -1437,6 +1467,16 @@ $$([^\$$
 
                 // 处理代码块格式
                 ContentProcessor.convertCodeBlocksForWechat();
+
+                // 处理列表：将列表转换为“列表符号 + 纯文本段落 + 缩进”以适配微信公众号
+                try {
+                    const activeTypography = document.querySelector('.protyle:not(.fn__none) .b3-typography');
+                    if (activeTypography) {
+                        ListProcessor.processListsForWechat(activeTypography);
+                    }
+                } catch (e) {
+                    console.error('处理微信公众号列表时出错:', e);
+                }
 
 
                 // 处理链接转换
