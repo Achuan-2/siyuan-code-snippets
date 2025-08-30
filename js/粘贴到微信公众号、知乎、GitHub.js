@@ -801,8 +801,8 @@ $$([^\$$
                         fragment.appendChild(contentP);
                         firstTextProcessed = true;
                     } else {
-                        // 需要添加margin-right处理：2em*深度
-                        clonedChild.style.marginRight = `${2 * (depth + 1)}em`;
+                        // 需要添加margin-Left处理：2em*深度
+                        clonedChild.style.marginLeft = `${2 * (depth + 1)}em`;
                         fragment.appendChild(clonedChild);
                     }
                 }
