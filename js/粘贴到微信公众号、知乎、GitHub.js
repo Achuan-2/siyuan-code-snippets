@@ -1,10 +1,12 @@
 // Version: 3.6
 // Author: Achuan-2
 // link: https://github.com/Achuan-2/siyuan-code-snippets/blob/main/js/%E7%B2%98%E8%B4%B4%E5%88%B0%E5%BE%AE%E4%BF%A1%E5%85%AC%E4%BC%97%E5%8F%B7%E3%80%81%E7%9F%A5%E4%B9%8E%E3%80%81GitHub.js
+// - v3.7/20250830
+//   - 微信公众号多级列表如果列表项同时存在段落块和子列表会有问题，暂时参考复制到知乎的处理，把列表改为普通段落
+//   - 思源笔记块链接转换优先级选项（可以选择优先使用微信公众号链接或知乎链接），保存在 localStorage 中
 // - v3.6/20250807
 //   - 优化获取当前文档ID和图床选择逻辑
 //   - 导出markdown默认导出img标签，替换图床兼容 markdown 图片语法和 HTML img 标签
-//   - 新增：链接优先级选项（可以选择优先使用微信公众号链接或知乎链接），保存在 localStorage 中
 // - v3.5/20250806
 //   - 优化微信公众号列表段落块与子列表混排的错乱问题
 // - v3.4/20250728
