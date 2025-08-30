@@ -1474,10 +1474,12 @@ $$([^\$$
 
             await Utils.showNotification("发布到微信公众号：样式转换ing");
 
-            // 保存原始优先级并临时设置为 'wechat'
-            const originalPriority = CONSTANTS.LINK_PRIORITY;
             try {
+                // 将优先级持久化为 'wechat' 并同步更新 UI
+                try { localStorage.setItem('siyuan_link_priority', 'wechat'); } catch (e) { }
                 CONSTANTS.LINK_PRIORITY = 'wechat';
+                const prioritySelect = activeContainer?.querySelector('.link-priority-select');
+                if (prioritySelect) prioritySelect.value = 'wechat';
                 // 删除带有title属性的h1标题
                 ContentProcessor.removeTitleH1();
 
@@ -1532,9 +1534,6 @@ $$([^\$$
             } catch (error) {
                 console.error('微信处理过程中出错:', error);
                 await Utils.showNotification(`处理失败: ${error.message}`);
-            } finally {
-                // 恢复原始优先级
-                try { CONSTANTS.LINK_PRIORITY = originalPriority; } catch (e) { }
             }
         }
 
@@ -1543,17 +1542,20 @@ $$([^\$$
          */
         static async handleNewZhihuButtonClick(event) {
             await Utils.showNotification("发布到知乎：样式转换ing");
-
-            // 保存原始优先级以便 finally 中恢复
-            const originalPriority = CONSTANTS.LINK_PRIORITY;
+            // 在点击知乎按钮时，将优先级持久化为 'zhihu' 并更新 UI
             try {
-                // 临时设置优先级为 'zhihu'
+                // 获取当前激活窗口 + 活动编辑器中的动作容器，避免跨文档串扰
+                const activeContainer = document.querySelector('.layout__wnd--active .protyle:not(.fn__none) .protyle-preview .protyle-preview__action');
+
+                try { localStorage.setItem('siyuan_link_priority', 'zhihu'); } catch (e) { }
                 CONSTANTS.LINK_PRIORITY = 'zhihu';
+                const prioritySelect = activeContainer?.querySelector('.link-priority-select');
+                if (prioritySelect) prioritySelect.value = 'zhihu';
+
                 // 删除带有title属性的h1标题
                 ContentProcessor.removeTitleH1();
 
                 // 获取图床选择（限定当前激活窗口与活动编辑器）
-                const activeContainer = document.querySelector('.layout__wnd--active .protyle:not(.fn__none) .protyle-preview .protyle-preview__action');
                 const imageHostSelect = activeContainer?.querySelector('.image-host-select');
                 const imageHostType = imageHostSelect ? imageHostSelect.value : CONSTANTS.IMAGE_HOST_TYPE.DEFAULT;
 
@@ -1604,9 +1606,6 @@ $$([^\$$
             } catch (error) {
                 console.error('知乎处理过程中出错:', error);
                 await Utils.showNotification(`处理失败: ${error.message}`);
-            } finally {
-                // 恢复原始优先级
-                try { CONSTANTS.LINK_PRIORITY = originalPriority; } catch (e) { }
             }
         }
 
