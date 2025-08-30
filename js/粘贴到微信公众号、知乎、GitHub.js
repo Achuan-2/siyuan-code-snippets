@@ -1,4 +1,3 @@
-// Version: 3.6
 // Author: Achuan-2
 // link: https://github.com/Achuan-2/siyuan-code-snippets/blob/main/js/%E7%B2%98%E8%B4%B4%E5%88%B0%E5%BE%AE%E4%BF%A1%E5%85%AC%E4%BC%97%E5%8F%B7%E3%80%81%E7%9F%A5%E4%B9%8E%E3%80%81GitHub.js
 // - v3.7/20250830
@@ -785,8 +784,9 @@ $$([^\$$
                         clonedChild.innerHTML = `${indentSpaces}<strong>${bulletPrefix}</strong>${clonedChild.innerHTML}`;
                         firstTextProcessed = true;
                     } else {
-                        // 后续段落只添加缩进
-                        clonedChild.innerHTML = `${indentSpaces}${clonedChild.innerHTML}`;
+                        // 后续段落只添加下一个层级的缩进
+                        const nextIndentSpaces = '\u200d' + '&nbsp;'.repeat((depth + 1) * 2);
+                        clonedChild.innerHTML = `${nextIndentSpaces}${clonedChild.innerHTML}`;
                     }
                     fragment.appendChild(clonedChild);
                 } else if (child.tagName === 'OL' || child.tagName === 'UL') {
@@ -801,6 +801,8 @@ $$([^\$$
                         fragment.appendChild(contentP);
                         firstTextProcessed = true;
                     } else {
+                        // 需要添加margin-right处理：2em*深度
+                        clonedChild.style.marginRight = `${2 * (depth + 1)}em`;
                         fragment.appendChild(clonedChild);
                     }
                 }
