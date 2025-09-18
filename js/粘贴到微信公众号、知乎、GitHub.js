@@ -1,7 +1,7 @@
 // Author: Achuan-2
 // link: https://github.com/Achuan-2/siyuan-code-snippets/blob/main/js/%E7%B2%98%E8%B4%B4%E5%88%B0%E5%BE%AE%E4%BF%A1%E5%85%AC%E4%BC%97%E5%8F%B7%E3%80%81%E7%9F%A5%E4%B9%8E%E3%80%81GitHub.js
-// - v3.8/20250918
-//   - 适配思源笔记更新：数据库绑定块ID不再等于块ID，需要先调用/api/av/getAttributeViewItemIDsByBoundIDs获取绑定块ID
+// - v3.9/20250918
+//   - 新增识别数据库关联列功能：获取当前文档数据库中的关联列内容，如果关联列不为空，在文档末尾自动添加h2标题"相关笔记"
 // - v3.7/20250830
 //   - 微信公众号多级列表如果列表项同时存在段落块和子列表会有问题，暂时参考复制到知乎的处理，把列表改为普通段落
 //   - 思源笔记块链接转换优先级选项（可以选择优先使用微信公众号链接或知乎链接），保存在 localStorage 中
@@ -38,6 +38,8 @@
         // 笔记引用转微信链接的数据库ID
         DATABASE_AV_ID: "20230804021554-h0l44hz",
         WEIXIN_KEY_ID: "20250310104930-o0812vp",
+        // 关联列ID
+        RELATION_KEY_ID: "20250826084857-8jwhs3e",
         // 分割线转图片
         SEPARATOR_IMAGE_URL: "https://i0.hdslb.com/bfs/article/4aa545dccf7de8d4a93c2b2b8e3265ac0a26d216.png",
         // 默认思源笔记图床前缀（当没有picgo图床映射时使用，需要开思源笔记会员）
@@ -423,19 +425,64 @@ $$([^\$$
         }
 
         /**
+         * 从数据库获取关联列内容
+         */
+        static async getRelationFromDatabase(blockId) {
+            try {
+
+                // 使用绑定的数据库项ID获取属性视图数据
+                const res = await Utils.fetchSyncPost("/api/av/getAttributeViewKeys", { id: blockId });
+
+                if (!res?.data) {
+                    return [];
+                }
+                console.log('Database attribute view data for block', blockId, ':', res.data);
+                const foundItem = res.data.find(item => item.avID === CONSTANTS.DATABASE_AV_ID);
+                console.log('Found database item for block', blockId, ':', foundItem);
+                if (!foundItem?.keyValues) {
+                    return [];
+                }
+
+                const relationKey = foundItem.keyValues.find(kv => kv.key.id === CONSTANTS.RELATION_KEY_ID);
+                console.log('关联列内容:', relationKey);
+                if (!relationKey?.values?.length) {
+                    return [];
+                }
+
+                // 提取关联的块ID和内容
+                const relationBlocks = [];
+                relationKey.values.forEach(value => {
+                    if (value.relation && Array.isArray(value.relation.blockIDs) && Array.isArray(value.relation.contents)) {
+                        // 将blockIDs和contents配对
+                        value.relation.blockIDs.forEach((blockId, index) => {
+                            const contentItem = value.relation.contents.find(content => content.blockID === blockId);
+                            if (contentItem && contentItem.block) {
+                                relationBlocks.push({
+                                    blockId: blockId,
+                                    title: contentItem.block.content
+                                });
+                            }
+                        });
+                    }
+                });
+
+                console.log('关联文档列表:', relationBlocks);
+                return relationBlocks;
+            } catch (error) {
+                console.error('获取关联列内容时出错:', blockId, error);
+                return [];
+            }
+        }
+
+        /**
          * 从数据库获取微信链接，如果没有则获取其他平台链接
          */
         static async getWeixinLinkFromDatabase(blockId) {
             try {
-                // 先获取绑定的数据库项ID
-                const boundItemId = await LinkProcessor.getBoundItemId(blockId);
-                if (!boundItemId) {
-                    console.log('未找到块的绑定数据库项ID:', blockId);
-                    return null;
-                }
+
 
                 // 使用绑定的数据库项ID获取属性视图数据
-                const res = await Utils.fetchSyncPost("/api/av/getAttributeViewKeys", { id: boundItemId });
+                const res = await Utils.fetchSyncPost("/api/av/getAttributeViewKeys", { id: blockId });
 
                 if (!res?.data) return null;
 
@@ -492,6 +539,107 @@ $$([^\$$
             } catch (error) {
                 console.error('Error fetching WeChat link for block:', blockId, error);
                 return null;
+            }
+        }
+
+        /**
+         * 处理关联文档，生成相关笔记部分的内容
+         */
+        static async processRelatedDocuments(docId, outputFormat = 'html') {
+            try {
+                const relationBlocks = await LinkProcessor.getRelationFromDatabase(docId);
+                if (!relationBlocks || relationBlocks.length === 0) {
+                    return '';
+                }
+
+                let relatedContent = '';
+                const relatedItems = [];
+
+                // 处理每个关联的文档
+                for (const relationItem of relationBlocks) {
+                    try {
+                        // 直接使用从关联列获取的标题，无需再调用API
+                        const title = relationItem.title;
+                        const blockId = relationItem.blockId;
+                        
+                        // 获取该文档的外部链接
+                        const externalLink = await LinkProcessor.getWeixinLinkFromDatabase(blockId);
+                        
+                        if (externalLink) {
+                            relatedItems.push({ title, link: externalLink, blockId });
+                        } else {
+                            // 如果没有外部链接，使用思源内部链接
+                            relatedItems.push({ title, link: `siyuan://blocks/${blockId}`, blockId });
+                        }
+                    } catch (error) {
+                        console.error('处理关联文档时出错:', relationItem.blockId, error);
+                    }
+                }
+
+                if (relatedItems.length === 0) {
+                    return '';
+                }
+
+                // 根据输出格式生成内容
+                if (outputFormat === 'html') {
+                    relatedContent = '<h2>相关笔记</h2>\n<ul>\n';
+                    relatedItems.forEach(item => {
+                        if (item.link.startsWith('siyuan://')) {
+                            relatedContent += `<li><span style="color: #338dd6;">${item.title}</span></li>\n`;
+                        } else {
+                            relatedContent += `<li><p><a href="${item.link}" target="_blank">${item.title}</a></p></li>\n`;
+                        }
+                    });
+                    relatedContent += '</ul>\n';
+                } else if (outputFormat === 'markdown') {
+                    relatedContent = '\n## 相关笔记\n\n';
+                    relatedItems.forEach(item => {
+                        if (item.link.startsWith('siyuan://')) {
+                            relatedContent += `- ${item.title}\n`;
+                        } else {
+                            relatedContent += `- [${item.title}](${item.link})\n`;
+                        }
+                    });
+                }
+
+                return relatedContent;
+            } catch (error) {
+                console.error('处理关联文档时出错:', error);
+                return '';
+            }
+        }
+
+        /**
+         * 在DOM中添加相关笔记部分
+         */
+        static async addRelatedDocumentsToDOM(docId) {
+            try {
+                const relatedContent = await LinkProcessor.processRelatedDocuments(docId, 'html');
+                if (!relatedContent) {
+                    return;
+                }
+
+                // 找到当前活动的编辑器区域
+                const typographyAreas = document.querySelectorAll('.layout__wnd--active .protyle:not(.fn__none) .b3-typography');
+                
+                typographyAreas.forEach(area => {
+                    // 检查是否已经添加了相关笔记部分，避免重复添加
+                    if (area.querySelector('h2') && 
+                        Array.from(area.querySelectorAll('h2')).some(h2 => h2.textContent.includes('相关笔记'))) {
+                        return;
+                    }
+
+                    // 创建临时容器来解析HTML
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = relatedContent;
+                    
+                    // 将解析后的元素添加到文档末尾
+                    while (tempDiv.firstChild) {
+                        area.appendChild(tempDiv.firstChild);
+                    }
+                });
+            } catch (error) {
+                console.error('在DOM中添加相关笔记时出错:', error);
             }
         }
 
@@ -1473,6 +1621,9 @@ $$([^\$$
             await Utils.showNotification("发布到微信公众号：样式转换ing");
 
             try {
+                // 获取当前文档ID用于处理关联文档
+                const docId = Utils.getCurrentDocumentId();
+                
                 // 将优先级持久化为 'wechat' 并同步更新 UI
                 try { localStorage.setItem('siyuan_link_priority', 'wechat'); } catch (e) { }
                 CONSTANTS.LINK_PRIORITY = 'wechat';
@@ -1513,19 +1664,24 @@ $$([^\$$
                 }
 
 
-                // 处理链接转换
-                if (linkConversionOption === 'convert') {
-                    await LinkProcessor.convertLinksToWechat();
-                } else if (linkConversionOption === 'no-convert') {
-                    await LinkProcessor.convertBlockReferencesToWechat();
-                }
-
                 // 处理内容
                 ContentProcessor.replaceHrWithImage();
                 if (CONSTANTS.ADD_WECHAT_CARD) {
                     ContentProcessor.addWeChatCard();
                 }
                 ContentProcessor.processBlockquote();
+
+                // 添加相关笔记部分
+                if (docId) {
+                    await LinkProcessor.addRelatedDocumentsToDOM(docId);
+                }
+
+                // 处理链接转换
+                if (linkConversionOption === 'convert') {
+                    await LinkProcessor.convertLinksToWechat();
+                } else if (linkConversionOption === 'no-convert') {
+                    await LinkProcessor.convertBlockReferencesToWechat();
+                }
 
                 // 点击桌面按钮
                 const desktopButton = document.querySelector('.layout__wnd--active .protyle:not(.fn__none) .protyle-preview .protyle-preview__action > button[data-type="desktop"]');
@@ -1552,6 +1708,9 @@ $$([^\$$
             try {
                 // 获取当前激活窗口 + 活动编辑器中的动作容器，避免跨文档串扰
                 const activeContainer = document.querySelector('.layout__wnd--active .protyle:not(.fn__none) .protyle-preview .protyle-preview__action');
+
+                // 获取当前文档ID用于处理关联文档
+                const docId = Utils.getCurrentDocumentId();
 
                 try { localStorage.setItem('siyuan_link_priority', 'zhihu'); } catch (e) { }
                 CONSTANTS.LINK_PRIORITY = 'zhihu';
@@ -1591,13 +1750,18 @@ $$([^\$$
                 // 转换代码块为知乎格式
                 ContentProcessor.convertCodeBlocksForZhihu();
 
-                // 预处理有序列表
-                ListProcessor.processOrderedListsForZhihu();
-
                 // 转换行内代码元素
                 ContentProcessor.convertSpanCodeToCodeElement();
 
                 await LinkProcessor.convertBlockReferencesToWechat();
+
+                // 添加相关笔记部分
+                if (docId) {
+                    await LinkProcessor.addRelatedDocumentsToDOM(docId);
+                }
+
+                // 预处理有序列表
+                ListProcessor.processOrderedListsForZhihu();
 
                 await Utils.showNotification("发布到知乎：样式转换完成");
 
@@ -1669,6 +1833,12 @@ $$([^\$$
 
                 // 处理块链接
                 processedContent = await LinkProcessor.convertBlockLinksToWeChat(processedContent);
+
+                // 添加相关笔记部分
+                const relatedContent = await LinkProcessor.processRelatedDocuments(docId, 'markdown');
+                if (relatedContent) {
+                    processedContent += relatedContent;
+                }
 
                 // 复制到剪贴板
                 await Utils.copyToClipboard(processedContent);
