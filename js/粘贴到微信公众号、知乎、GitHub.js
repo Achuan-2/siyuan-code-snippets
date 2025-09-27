@@ -1682,7 +1682,11 @@ $$([^\$$
                 } else if (linkConversionOption === 'no-convert') {
                     await LinkProcessor.convertBlockReferencesToWechat();
                 }
-
+                if (linkConversionOption === 'convert') {
+                    await LinkProcessor.convertLinksToWechat();
+                } else if (linkConversionOption === 'no-convert') {
+                    await LinkProcessor.convertBlockReferencesToWechat();
+                }
                 // 点击桌面按钮
                 const desktopButton = document.querySelector('.layout__wnd--active .protyle:not(.fn__none) .protyle-preview .protyle-preview__action > button[data-type="desktop"]');
                 desktopButton?.click();
