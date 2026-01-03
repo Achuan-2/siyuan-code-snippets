@@ -561,10 +561,10 @@ $$([^\$$
                         // 直接使用从关联列获取的标题，无需再调用API
                         const title = relationItem.title;
                         const blockId = relationItem.blockId;
-                        
+
                         // 获取该文档的外部链接
                         const externalLink = await LinkProcessor.getWeixinLinkFromDatabase(blockId);
-                        
+
                         if (externalLink) {
                             relatedItems.push({ title, link: externalLink, blockId });
                         } else {
@@ -621,10 +621,10 @@ $$([^\$$
 
                 // 找到当前活动的编辑器区域
                 const typographyAreas = document.querySelectorAll('.layout__wnd--active .protyle:not(.fn__none) .b3-typography');
-                
+
                 typographyAreas.forEach(area => {
                     // 检查是否已经添加了相关笔记部分，避免重复添加
-                    if (area.querySelector('h2') && 
+                    if (area.querySelector('h2') &&
                         Array.from(area.querySelectorAll('h2')).some(h2 => h2.textContent.includes('相关笔记'))) {
                         return;
                     }
@@ -632,7 +632,7 @@ $$([^\$$
                     // 创建临时容器来解析HTML
                     const tempDiv = document.createElement('div');
                     tempDiv.innerHTML = relatedContent;
-                    
+
                     // 将解析后的元素添加到文档末尾
                     while (tempDiv.firstChild) {
                         area.appendChild(tempDiv.firstChild);
@@ -1344,30 +1344,38 @@ $$([^\$$
             // 处理每个文本节点
             textNodes.forEach(textNode => {
                 const originalText = textNode.textContent;
-                const processedText = originalText
-                    // 将换行符转换为<br>标签
-                    .replace(/\n/g, '<br>')
-                    // 将连续的空格转换为&nbsp;
-                    .replace(/ /g, '&nbsp;')
-                    // 处理制表符
-                    .replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;');
-
-                // 如果文本内容发生了变化，需要替换文本节点
-                if (processedText !== originalText) {
-                    // 创建一个临时容器来解析HTML
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = processedText;
-
-                    // 将临时容器的内容插入到文本节点的位置
-                    const fragment = document.createDocumentFragment();
-                    while (tempDiv.firstChild) {
-                        fragment.appendChild(tempDiv.firstChild);
-                    }
-
-                    // 替换原始文本节点
-                    textNode.parentNode.insertBefore(fragment, textNode);
-                    textNode.parentNode.removeChild(textNode);
+                
+                // 检查是否需要处理（包含换行符、空格或制表符）
+                if (!/[\n \t]/.test(originalText)) {
+                    return;
                 }
+
+                // 手动构建文档片段，避免使用innerHTML解析导致的问题
+                const fragment = document.createDocumentFragment();
+                
+                // 按换行符分割文本
+                const lines = originalText.split('\n');
+                
+                lines.forEach((line, lineIndex) => {
+                    // 处理行内的空格和制表符
+                    let processedLine = line
+                        .replace(/ /g, '\u00A0')  // 使用Unicode不间断空格字符，避免HTML实体解析问题
+                        .replace(/\t/g, '\u00A0\u00A0\u00A0\u00A0');  // 制表符转为4个不间断空格
+                    
+                    // 如果处理后的行不为空，添加文本节点
+                    if (processedLine) {
+                        fragment.appendChild(document.createTextNode(processedLine));
+                    }
+                    
+                    // 在行之间添加<br>标签（除了最后一行）
+                    if (lineIndex < lines.length - 1) {
+                        fragment.appendChild(document.createElement('br'));
+                    }
+                });
+
+                // 替换原始文本节点
+                textNode.parentNode.insertBefore(fragment, textNode);
+                textNode.parentNode.removeChild(textNode);
             });
 
             // 处理<br>标签，确保它们被正确处理
@@ -1623,7 +1631,7 @@ $$([^\$$
             try {
                 // 获取当前文档ID用于处理关联文档
                 const docId = Utils.getCurrentDocumentId();
-                
+
                 // 将优先级持久化为 'wechat' 并同步更新 UI
                 try { localStorage.setItem('siyuan_link_priority', 'wechat'); } catch (e) { }
                 CONSTANTS.LINK_PRIORITY = 'wechat';
