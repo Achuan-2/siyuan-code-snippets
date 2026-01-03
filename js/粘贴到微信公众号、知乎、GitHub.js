@@ -1344,7 +1344,7 @@ $$([^\$$
             // 处理每个文本节点
             textNodes.forEach(textNode => {
                 const originalText = textNode.textContent;
-                
+
                 // 检查是否需要处理（包含换行符、空格或制表符）
                 if (!/[\n \t]/.test(originalText)) {
                     return;
@@ -1352,21 +1352,21 @@ $$([^\$$
 
                 // 手动构建文档片段，避免使用innerHTML解析导致的问题
                 const fragment = document.createDocumentFragment();
-                
+
                 // 按换行符分割文本
                 const lines = originalText.split('\n');
-                
+
                 lines.forEach((line, lineIndex) => {
                     // 处理行内的空格和制表符
                     let processedLine = line
                         .replace(/ /g, '\u00A0')  // 使用Unicode不间断空格字符，避免HTML实体解析问题
                         .replace(/\t/g, '\u00A0\u00A0\u00A0\u00A0');  // 制表符转为4个不间断空格
-                    
+
                     // 如果处理后的行不为空，添加文本节点
                     if (processedLine) {
                         fragment.appendChild(document.createTextNode(processedLine));
                     }
-                    
+
                     // 在行之间添加<br>标签（除了最后一行）
                     if (lineIndex < lines.length - 1) {
                         fragment.appendChild(document.createElement('br'));
