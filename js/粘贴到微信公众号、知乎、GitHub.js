@@ -738,8 +738,8 @@ $$([^\$$
                 } else if (href?.startsWith('#')) {
                     LinkProcessor.replaceWithSpan(link, text, '#338dd6');
                 } else if (!href?.startsWith('https://mp.weixin.qq.com/')) {
-                    const newTextContent = text === href ? href : `[${text}](${href})`;
-                    LinkProcessor.replaceWithSpan(link, newTextContent, '#338dd6');
+                    // 统一转换为 Markdown 形式 [文本](链接)，并保证锚文本保持默认颜色，其他部分为蓝色
+                    LinkProcessor.replaceWithStyledMarkdown(link, text, href, '#338dd6');
                 }
             }
         }
@@ -772,11 +772,11 @@ $$([^\$$
                 if (weixinLink) {
                     link.setAttribute('href', weixinLink);
                 } else {
-                    LinkProcessor.replaceWithSpan(link, text, '#338dd6');
+                    LinkProcessor.replaceWithStyledMarkdown(link, text, href, '#338dd6');
                 }
             } catch (error) {
                 console.error('Error fetching WeChat link for block:', blockId, error);
-                LinkProcessor.replaceWithSpan(link, text, '#338dd6');
+                LinkProcessor.replaceWithStyledMarkdown(link, text, href, '#338dd6');
             }
         }
 
@@ -788,6 +788,41 @@ $$([^\$$
             newSpan.textContent = text;
             newSpan.style.color = color;
             link.parentNode.replaceChild(newSpan, link);
+        }
+
+        /**
+         * 用带样式的 Markdown 语法替换链接（例如：[锚文本](链接)）
+         * 锚文本保持默认颜色，其他符号和 URL 使用指定颜色
+         */
+        static replaceWithStyledMarkdown(link, text, href, color) {
+            const wrapper = document.createElement('span');
+
+            const openBracket = document.createElement('span');
+            openBracket.textContent = '[';
+            openBracket.style.color = color;
+
+            const anchor = document.createElement('span');
+            anchor.textContent = text; // 锚文本不设置颜色，保持默认
+
+            const mid = document.createElement('span');
+            mid.textContent = '](';
+            mid.style.color = color;
+
+            const url = document.createElement('span');
+            url.textContent = href;
+            url.style.color = color;
+
+            const close = document.createElement('span');
+            close.textContent = ')';
+            close.style.color = color;
+
+            wrapper.appendChild(openBracket);
+            wrapper.appendChild(anchor);
+            wrapper.appendChild(mid);
+            wrapper.appendChild(url);
+            wrapper.appendChild(close);
+
+            link.parentNode.replaceChild(wrapper, link);
         }
     }
 
@@ -906,7 +941,7 @@ $$([^\$$
             const fragment = document.createDocumentFragment();
 
             listItems.forEach((li, index) => {
-                const bulletPrefix = ListProcessor.getUnorderedListPrefix(depth);
+                const bulletPrefix = ListProcessor.getUnorderedListPrefix(depth, li);
                 ListProcessor.processListItem(li, bulletPrefix, fragment, index < listItems.length - 1, depth);
             });
 
@@ -934,7 +969,17 @@ $$([^\$$
         /**
          * 获取无序列表的前缀
          */
-        static getUnorderedListPrefix(depth) {
+        static getUnorderedListPrefix(depth, li = null) {
+            // 检查是否是 checkbox 类型的列表项
+            if (li && li.classList.contains('protyle-task')) {
+                const checkbox = li.querySelector('input[type="checkbox"]');
+                if (checkbox) {
+                    // 根据 checkbox 的 checked 状态返回不同符号
+                    return checkbox.checked ? '✅ ' : '▢ ';
+                }
+            }
+            
+            // 普通无序列表，使用原有符号
             const level = depth % CONSTANTS.LIST_SYMBOLS.UNORDERED.length;
             return `${CONSTANTS.LIST_SYMBOLS.UNORDERED[level]} `;
         }
