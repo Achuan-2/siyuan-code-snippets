@@ -978,7 +978,7 @@ $$([^\$$
                     return checkbox.checked ? '✅ ' : '▢ ';
                 }
             }
-            
+
             // 普通无序列表，使用原有符号
             const level = depth % CONSTANTS.LIST_SYMBOLS.UNORDERED.length;
             return `${CONSTANTS.LIST_SYMBOLS.UNORDERED[level]} `;
