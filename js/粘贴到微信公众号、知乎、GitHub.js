@@ -796,6 +796,19 @@ $$([^\$$
          */
         static replaceWithStyledMarkdown(link, text, href, color) {
             const wrapper = document.createElement('span');
+            const trimmedText = (text || '').trim();
+            const normalizedHref = (href || '').trim();
+            const hrefNoProtocol = normalizedHref.replace(/^https?:\/\//i, '');
+
+            // 如果锚文本与完整 URL 相同（或与去掉协议后的 URL 相同），只展示 URL 本身
+            if (trimmedText === normalizedHref || trimmedText === hrefNoProtocol) {
+                const urlSpan = document.createElement('span');
+                urlSpan.textContent = normalizedHref;
+                urlSpan.style.color = color;
+                wrapper.appendChild(urlSpan);
+                link.parentNode.replaceChild(wrapper, link);
+                return;
+            }
 
             const openBracket = document.createElement('span');
             openBracket.textContent = '[';
