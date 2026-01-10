@@ -1336,6 +1336,47 @@ $$([^\$$
         }
 
         /**
+         * 将思源笔记图片格式转换为微信公众号格式
+         */
+        static convertSiyuanImagesToWechatFormat() {
+            const typographyAreas = document.querySelectorAll('.b3-typography');
+
+            typographyAreas.forEach(area => {
+                const imageSpans = area.querySelectorAll('span[data-type="img"]');
+
+                imageSpans.forEach(span => {
+                    // 1. 删除 protyle-action__drag 元素
+                    const dragElement = span.querySelector('.protyle-action__drag');
+                    if (dragElement) {
+                        dragElement.remove();
+                    }
+
+                    // 2. 检查并删除空的 protyle-action__title
+                    const titleElement = span.querySelector('.protyle-action__title');
+                    if (titleElement) {
+                        const titleText = titleElement.textContent.trim();
+                        if (!titleText || titleText === '') {
+                            titleElement.remove();
+                        }
+                    }
+
+                    // 3. 删除 span.img 最后一个空span节点（但保留第一个空span节点）
+                    const childSpans = Array.from(span.children).filter(child => 
+                        child.tagName === 'SPAN' && 
+                        !child.className && 
+                        child.textContent.trim() === '' &&
+                        child.children.length === 0
+                    );
+
+                    // 如果有多个空span，删除最后一个
+                    if (childSpans.length > 1) {
+                        childSpans[childSpans.length - 1].remove();
+                    }
+                });
+            });
+        }
+
+        /**
          * 将思源笔记代码块转换为微信公众号格式
          */
         static convertCodeBlocksForWechat() {
@@ -1715,6 +1756,9 @@ $$([^\$$
                 if (addHeadingNumbers) {
                     HeadingNumberProcessor.addNumbersToHTMLHeadings();
                 }
+
+                // 处理图片格式（删除多余元素和空行）
+                ContentProcessor.convertSiyuanImagesToWechatFormat();
 
                 // 处理代码块格式
                 ContentProcessor.convertCodeBlocksForWechat();
