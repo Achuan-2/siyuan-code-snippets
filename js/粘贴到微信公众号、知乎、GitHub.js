@@ -1361,9 +1361,9 @@ $$([^\$$
                     }
 
                     // 3. 删除 span.img 最后一个空span节点（但保留第一个空span节点）
-                    const childSpans = Array.from(span.children).filter(child => 
-                        child.tagName === 'SPAN' && 
-                        !child.className && 
+                    const childSpans = Array.from(span.children).filter(child =>
+                        child.tagName === 'SPAN' &&
+                        !child.className &&
                         child.textContent.trim() === '' &&
                         child.children.length === 0
                     );
