@@ -89,6 +89,9 @@
             SEPARATOR: '.'  // 编号分隔符
         }
 
+        // 是否默认在导出/转换时给标题添加编号（供 UI 默认值使用）
+        ,DEFAULT_ADD_HEADING_NUMBERS: false
+
     };
 
     // 工具函数类
@@ -2339,9 +2342,13 @@ $$([^\$$
                 minWidth: '100px'
             });
 
+            const defaultEnabled = (typeof CONSTANTS.DEFAULT_ADD_HEADING_NUMBERS !== 'undefined')
+                ? !!CONSTANTS.DEFAULT_ADD_HEADING_NUMBERS
+                : !!(CONSTANTS.HEADING_NUMBER && CONSTANTS.HEADING_NUMBER.ENABLED);
+
             const options = [
-                { value: 'no', text: '不添加编号', selected: false },
-                { value: 'yes', text: '添加标题编号', selected: true }
+                { value: 'no', text: '不添加编号', selected: !defaultEnabled },
+                { value: 'yes', text: '添加标题编号', selected: defaultEnabled }
             ];
 
             options.forEach(({ value, text, selected }) => {
