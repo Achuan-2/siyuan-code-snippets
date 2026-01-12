@@ -90,7 +90,7 @@
         }
 
         // 是否默认在导出/转换时给标题添加编号（供 UI 默认值使用）
-        ,DEFAULT_ADD_HEADING_NUMBERS: false
+        , DEFAULT_ADD_HEADING_NUMBERS: false
 
     };
 
