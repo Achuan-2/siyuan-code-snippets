@@ -775,11 +775,12 @@ $$([^\$$
                 if (weixinLink) {
                     link.setAttribute('href', weixinLink);
                 } else {
-                    LinkProcessor.replaceWithStyledMarkdown(link, text, href, '#338dd6');
+                    // 无外部链接绑定时，不暴露 siyuan://blocks 内链
+                    LinkProcessor.replaceWithPlainText(link, text);
                 }
             } catch (error) {
                 console.error('Error fetching WeChat link for block:', blockId, error);
-                LinkProcessor.replaceWithStyledMarkdown(link, text, href, '#338dd6');
+                LinkProcessor.replaceWithPlainText(link, text);
             }
         }
 
@@ -790,6 +791,15 @@ $$([^\$$
             const newSpan = document.createElement('span');
             newSpan.textContent = text;
             newSpan.style.color = color;
+            link.parentNode.replaceChild(newSpan, link);
+        }
+
+        /**
+         * 用纯文本替换链接（不保留URL）
+         */
+        static replaceWithPlainText(link, text) {
+            const newSpan = document.createElement('span');
+            newSpan.textContent = text;
             link.parentNode.replaceChild(newSpan, link);
         }
 
