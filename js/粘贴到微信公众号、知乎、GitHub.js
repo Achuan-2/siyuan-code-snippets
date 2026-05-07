@@ -224,6 +224,96 @@
     // 图片处理类
     class ImageProcessor {
         /**
+         * 将图片链接中的空格替换为下划线
+         */
+        static normalizeImageUrl(url) {
+            return typeof url === 'string' ? url.replace(/ /g, '_') : url;
+        }
+
+        /**
+         * 规范化DOM中的图片链接
+         */
+        static normalizeImageUrlsInDOM(root = document) {
+            try {
+                const images = root === document
+                    ? document.querySelectorAll('.b3-typography img')
+                    : root.querySelectorAll('img');
+
+                images.forEach(img => {
+                    ['src', 'data-src'].forEach(attr => {
+                        const currentUrl = img.getAttribute(attr);
+                        if (!currentUrl) return;
+
+                        const normalizedUrl = ImageProcessor.normalizeImageUrl(currentUrl);
+                        if (normalizedUrl !== currentUrl) {
+                            img.setAttribute(attr, normalizedUrl);
+                            console.log('规范化图片URL空格:', currentUrl, '->', normalizedUrl);
+                        }
+                    });
+                });
+            } catch (error) {
+                console.error('规范化DOM中图片URL时出错:', error);
+            }
+        }
+
+        /**
+         * 规范化markdown/html文本中的图片链接
+         */
+        static normalizeImageUrls(content) {
+            try {
+                const lines = content.split('\n');
+                let inCodeBlock = false;
+                let codeBlockFence = '';
+
+                const processedLines = lines.map(line => {
+                    const codeBlockMatch = line.match(/^(\s*)(```|~~~)(.*)$/);
+                    if (codeBlockMatch) {
+                        const [, indent, fence] = codeBlockMatch;
+                        if (!inCodeBlock) {
+                            inCodeBlock = true;
+                            codeBlockFence = fence;
+                        } else if (fence === codeBlockFence && indent.length === 0) {
+                            inCodeBlock = false;
+                            codeBlockFence = '';
+                        }
+                        return line;
+                    }
+
+                    if (inCodeBlock) {
+                        return line;
+                    }
+
+                    const inlineCodeCount = (line.match(/`/g) || []).length;
+                    const hasInlineCode = inlineCodeCount >= 2 && inlineCodeCount % 2 === 0;
+                    if (hasInlineCode) {
+                        return line;
+                    }
+
+                    let processedLine = line;
+
+                    const mdImgRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+                    processedLine = processedLine.replace(mdImgRegex, (match, altText, imagePath) => {
+                        const normalizedPath = ImageProcessor.normalizeImageUrl(imagePath);
+                        return normalizedPath === imagePath ? match : `![${altText}](${normalizedPath})`;
+                    });
+
+                    const imgAttrRegex = /\s(src|data-src)\s*=\s*(["'])([^"']+)\2/g;
+                    processedLine = processedLine.replace(imgAttrRegex, (match, attr, quote, val) => {
+                        const normalizedVal = ImageProcessor.normalizeImageUrl(val);
+                        return normalizedVal === val ? match : ` ${attr}=${quote}${normalizedVal}${quote}`;
+                    });
+
+                    return processedLine;
+                });
+
+                return processedLines.join('\n');
+            } catch (error) {
+                console.error('规范化图片URL时出错:', error);
+                return content;
+            }
+        }
+
+        /**
          * 替换DOM中的图片URL
          */
         static async replaceImageUrlsInDOM(fileMap) {
@@ -241,10 +331,13 @@
                         );
 
                         if (fileInfo) {
-                            img.setAttribute('src', fileInfo.url);
-                            console.log('替换图片URL:', fileInfo.originUrl, '->', fileInfo.url);
+                            const newUrl = ImageProcessor.normalizeImageUrl(fileInfo.url);
+                            img.setAttribute('src', newUrl);
+                            console.log('替换图片URL:', fileInfo.originUrl, '->', newUrl);
                         }
                     });
+
+                    ImageProcessor.normalizeImageUrlsInDOM(area);
                 });
             } catch (error) {
                 console.error('替换DOM中图片URL时出错:', error);
@@ -297,7 +390,7 @@
                     Object.values(fileMap).forEach(fileInfo => {
                         if (fileInfo.originUrl && fileInfo.url) {
                             const originUrl = fileInfo.originUrl;
-                            const newUrl = fileInfo.url;
+                            const newUrl = ImageProcessor.normalizeImageUrl(fileInfo.url);
 
                             processedLine = processedLine.replace(
                                 new RegExp(Utils.escapeRegExp(originUrl), 'g'),
@@ -372,7 +465,8 @@ $$([^\$$
                     // 1) 处理 markdown 图片语法中的相对路径（不以http/https开头）
                     const mdImgRelativeRegex = /!\[([^\]]*)\]\(((?!https?:\/\/)[^)]+)\)/g;
                     processedLine = processedLine.replace(mdImgRelativeRegex, (match, altText, imagePath) => {
-                        const cleanPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
+                        const rawPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
+                        const cleanPath = ImageProcessor.normalizeImageUrl(rawPath);
                         const fullUrl = CONSTANTS.DEFAULT_IMAGE_PREFIX + cleanPath;
                         return `![${altText}](${fullUrl})`;
                     });
@@ -383,13 +477,15 @@ $$([^\$$
                     const imgAttrRelativeSingle = /\s(src|data-src)\s*=\s*'((?!https?:\/\/)[^']+)'/g;
 
                     processedLine = processedLine.replace(imgAttrRelativeDouble, (m, attr, val) => {
-                        const cleanPath = val.startsWith('/') ? val.slice(1) : val;
+                        const rawPath = val.startsWith('/') ? val.slice(1) : val;
+                        const cleanPath = ImageProcessor.normalizeImageUrl(rawPath);
                         const fullUrl = CONSTANTS.DEFAULT_IMAGE_PREFIX + cleanPath;
                         return ` ${attr}="${fullUrl}"`;
                     });
 
                     processedLine = processedLine.replace(imgAttrRelativeSingle, (m, attr, val) => {
-                        const cleanPath = val.startsWith('/') ? val.slice(1) : val;
+                        const rawPath = val.startsWith('/') ? val.slice(1) : val;
+                        const cleanPath = ImageProcessor.normalizeImageUrl(rawPath);
                         const fullUrl = CONSTANTS.DEFAULT_IMAGE_PREFIX + cleanPath;
                         return ` ${attr}='${fullUrl}'`;
                     });
@@ -1245,7 +1341,7 @@ $$([^\$$
 
                     // 创建img元素
                     const newImg = document.createElement('img');
-                    newImg.setAttribute('src', src);
+                    newImg.setAttribute('src', ImageProcessor.normalizeImageUrl(src));
 
                     figure.appendChild(newImg);
 
@@ -1764,6 +1860,7 @@ $$([^\$$
                     }
                 }
                 // 使用默认图床时，微信不需要特殊处理
+                ImageProcessor.normalizeImageUrlsInDOM();
 
                 // 添加标题编号
                 if (addHeadingNumbers) {
@@ -1863,6 +1960,7 @@ $$([^\$$
                     }
                 }
                 // 使用默认图床时，知乎不需要特殊处理
+                ImageProcessor.normalizeImageUrlsInDOM();
 
                 // 添加标题编号
                 const headingNumberSelect = activeContainer?.querySelector('.heading-number-select');
@@ -1957,6 +2055,7 @@ $$([^\$$
                     // 如果选择默认图床，为相对路径图片添加默认前缀
                     processedContent = ImageProcessor.addDefaultPrefixToImages(processedContent);
                 }
+                processedContent = ImageProcessor.normalizeImageUrls(processedContent);
 
                 // 处理块链接
                 processedContent = await LinkProcessor.convertBlockLinksToWeChat(processedContent);
