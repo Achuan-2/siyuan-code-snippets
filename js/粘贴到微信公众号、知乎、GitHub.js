@@ -53,6 +53,11 @@
         ADD_WECHAT_CARD: false,
         // 块链接优先级：'wechat' 或 'zhihu'，旧的无效设置回退到微信公众号
         LINK_PRIORITY: localStorage.getItem('siyuan_link_priority') === 'zhihu' ? 'zhihu' : 'wechat',
+        // 导出预览中的特殊任务状态
+        TASK_STATUS_SYMBOLS: {
+            '-': '❌',
+            '/': '⏳'
+        },
         // 微信公众号卡片（获取方法：在微信公众号的草稿页面手动插入公众号卡片后，开发者工具查看源码，修改下面的参数）
         WECHAT_PROFILE: {
             nickname: "Achuan同学",
@@ -96,6 +101,31 @@
 
     // 工具函数类
     class Utils {
+        /**
+         * 标记 Markdown 围栏代码块的所有行，包括开始和结束围栏。
+         * 支持列表内缩进、反引号/波浪线围栏及长度不短于开始围栏的结束围栏。
+         */
+        static getMarkdownCodeLineMask(lines) {
+            let openFence = null;
+            return lines.map(line => {
+                const match = line.match(/^[ \t\u200B\u200D\uFEFF]*(`{3,}|~{3,})(.*)$/);
+                if (openFence) {
+                    if (match && match[1][0] === openFence.character &&
+                        match[1].length >= openFence.length && /^[ \t]*$/.test(match[2])) {
+                        openFence = null;
+                    }
+                    return true;
+                }
+
+                // 反引号围栏的语言信息中不能再包含反引号，避免误识别行内代码。
+                if (match && (match[1][0] !== '`' || !match[2].includes('`'))) {
+                    openFence = { character: match[1][0], length: match[1].length };
+                    return true;
+                }
+                return false;
+            });
+        }
+
         /**
          * 转义正则表达式特殊字符
          */
@@ -261,25 +291,11 @@
          */
         static normalizeImageUrls(content) {
             try {
-                const lines = content.split('\n');
-                let inCodeBlock = false;
-                let codeBlockFence = '';
+                const lines = content.split(/\r?\n/);
+                const codeLineMask = Utils.getMarkdownCodeLineMask(lines);
 
-                const processedLines = lines.map(line => {
-                    const codeBlockMatch = line.match(/^(\s*)(```|~~~)(.*)$/);
-                    if (codeBlockMatch) {
-                        const [, indent, fence] = codeBlockMatch;
-                        if (!inCodeBlock) {
-                            inCodeBlock = true;
-                            codeBlockFence = fence;
-                        } else if (fence === codeBlockFence && indent.length === 0) {
-                            inCodeBlock = false;
-                            codeBlockFence = '';
-                        }
-                        return line;
-                    }
-
-                    if (inCodeBlock) {
+                const processedLines = lines.map((line, index) => {
+                    if (codeLineMask[index]) {
                         return line;
                     }
 
@@ -350,29 +366,12 @@
         static async replaceImageUrls(content, picgoFileMapKey) {
             try {
                 const fileMap = JSON.parse(picgoFileMapKey);
-                const lines = content.split('\n');
-                let inCodeBlock = false;
-                let codeBlockFence = '';
+                const lines = content.split(/\r?\n/);
+                const codeLineMask = Utils.getMarkdownCodeLineMask(lines);
 
-                const processedLines = lines.map(line => {
-                    // 检测代码块边界
-                    const codeBlockMatch = line.match(/^(\s*)(‍```|~~~)(.*)$/);
-                    if (codeBlockMatch) {
-                        const [, indent, fence, language] = codeBlockMatch;
-                        if (!inCodeBlock) {
-                            // 开始代码块
-                            inCodeBlock = true;
-                            codeBlockFence = fence;
-                        } else if (fence === codeBlockFence && indent.length === 0) {
-                            // 结束代码块（需要相同的围栏符号且在行首）
-                            inCodeBlock = false;
-                            codeBlockFence = '';
-                        }
-                        return line;
-                    }
-
+                const processedLines = lines.map((line, index) => {
                     // 如果在代码块内，直接返回原行
-                    if (inCodeBlock) {
+                    if (codeLineMask[index]) {
                         return line;
                     }
 
@@ -425,29 +424,12 @@ $$([^\$$
          */
         static addDefaultPrefixToImages(content) {
             try {
-                const lines = content.split('\n');
-                let inCodeBlock = false;
-                let codeBlockFence = '';
+                const lines = content.split(/\r?\n/);
+                const codeLineMask = Utils.getMarkdownCodeLineMask(lines);
 
-                const processedLines = lines.map(line => {
-                    // 检测代码块边界
-                    const codeBlockMatch = line.match(/^(\s*)(```|~~~)(.*)$/);
-                    if (codeBlockMatch) {
-                        const [, indent, fence] = codeBlockMatch;
-                        if (!inCodeBlock) {
-                            // 开始代码块
-                            inCodeBlock = true;
-                            codeBlockFence = fence;
-                        } else if (fence === codeBlockFence && indent.length === 0) {
-                            // 结束代码块（需要相同的围栏符号且在行首）
-                            inCodeBlock = false;
-                            codeBlockFence = '';
-                        }
-                        return line;
-                    }
-
+                const processedLines = lines.map((line, index) => {
                     // 如果在代码块内，直接返回原行
-                    if (inCodeBlock) {
+                    if (codeLineMask[index]) {
                         return line;
                     }
 
@@ -1097,8 +1079,10 @@ $$([^\$$
         static getUnorderedListPrefix(depth, li = null) {
             // 检查是否是 checkbox 类型的列表项
             if (li && li.classList.contains('protyle-task')) {
-                const checkbox = li.querySelector('input[type="checkbox"]');
+                const checkbox = li.querySelector('input[type="checkbox"], .siyuan-export-task-marker');
                 if (checkbox) {
+                    const taskSymbol = CONSTANTS.TASK_STATUS_SYMBOLS[checkbox.getAttribute('data-task')];
+                    if (taskSymbol) return `${taskSymbol} `;
                     // 根据 checkbox 的 checked 状态返回不同符号
                     return checkbox.checked ? '✅ ' : '▢ ';
                 }
@@ -1121,9 +1105,17 @@ $$([^\$$
             // 处理列表项中的直接子元素
             const children = Array.from(li.children);
             let firstTextProcessed = false;
+            const hasTaskMarkerPrefix = Object.values(CONSTANTS.TASK_STATUS_SYMBOLS).includes(bulletPrefix.trim());
 
             children.forEach((child, childIndex) => {
+                // 特殊任务符号已经包含在列表前缀中，避免复制时重复显示
+                if (hasTaskMarkerPrefix && child.matches('.siyuan-export-task-marker')) {
+                    return;
+                }
                 const clonedChild = child.cloneNode(true);
+                if (hasTaskMarkerPrefix) {
+                    clonedChild.querySelectorAll('.siyuan-export-task-marker').forEach(marker => marker.remove());
+                }
 
                 if (child.tagName === 'P') {
                     // 处理段落 - 只为段落添加缩进
@@ -1158,8 +1150,12 @@ $$([^\$$
 
             // 如果没有处理任何文本内容，但列表项有内容，创建一个基本段落
             if (!firstTextProcessed && li.textContent.trim()) {
+                const clonedLi = li.cloneNode(true);
+                if (hasTaskMarkerPrefix) {
+                    clonedLi.querySelectorAll('.siyuan-export-task-marker').forEach(marker => marker.remove());
+                }
                 const contentP = document.createElement('p');
-                contentP.innerHTML = `${indentSpaces}<strong>${bulletPrefix}</strong>${li.innerHTML.replace(/<(ol|ul)[^>]*>[\s\S]*?<\/(ol|ul)>/gi, '')}`;
+                contentP.innerHTML = `${indentSpaces}<strong>${bulletPrefix}</strong>${clonedLi.innerHTML.replace(/<(ol|ul)[^>]*>[\s\S]*?<\/(ol|ul)>/gi, '')}`;
                 fragment.appendChild(contentP);
             }
         }
@@ -1167,6 +1163,24 @@ $$([^\$$
 
     // 内容处理类
     class ContentProcessor {
+        /**
+         * 将导出预览中的取消、进行中任务复选框替换为可复制的符号
+         */
+        static processTaskCheckboxes() {
+            const checkboxes = document.querySelectorAll('.protyle-preview .b3-typography input[type="checkbox"][data-task]');
+            checkboxes.forEach(checkbox => {
+                const task = checkbox.getAttribute('data-task');
+                const symbol = CONSTANTS.TASK_STATUS_SYMBOLS[task];
+                if (!symbol) return;
+
+                const marker = document.createElement('span');
+                marker.className = 'siyuan-export-task-marker';
+                marker.setAttribute('data-task', task);
+                marker.textContent = symbol;
+                checkbox.replaceWith(marker);
+            });
+        }
+
         /**
          * 处理引述块
          */
@@ -1768,61 +1782,26 @@ $$([^\$$
          * 为markdown内容中的标题添加编号
          */
         static addNumbersToMarkdownHeadings(content) {
-            const lines = content.split('\n');
+            const lines = content.split(/\r?\n/);
             const numbers = Array(6).fill(0);
-            let inCodeBlock = false;
-            let codeBlockFence = '';
+            const codeLineMask = Utils.getMarkdownCodeLineMask(lines);
 
             // 统计h1标题数量，判断是否只有一个h1标题
             let h1Count = 0;
-            for (const line of lines) {
+            lines.forEach((line, index) => {
+                if (codeLineMask[index]) return;
                 const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
-                if (headingMatch && !inCodeBlock) {
+                if (headingMatch) {
                     const level = headingMatch[1].length;
                     if (level === 1) {
                         h1Count++;
                     }
                 }
+            });
 
-                // 检测代码块边界
-                const codeBlockMatch = line.match(/^(\s*)(‍```|~~~)(.*)$/);
-                if (codeBlockMatch) {
-                    const [, indent, fence, language] = codeBlockMatch;
-                    if (!inCodeBlock) {
-                        // 开始代码块
-                        inCodeBlock = true;
-                        codeBlockFence = fence;
-                    } else if (fence === codeBlockFence && indent.length === 0) {
-                        // 结束代码块（需要相同的围栏符号且在行首）
-                        inCodeBlock = false;
-                        codeBlockFence = '';
-                    }
-                }
-            }
-
-            // 重置状态
-            inCodeBlock = false;
-            codeBlockFence = '';
-
-            const processedLines = lines.map(line => {
-                // 检测代码块边界
-                const codeBlockMatch = line.match(/^(\s*)(```|~~~)(.*)$/);
-                if (codeBlockMatch) {
-                    const [, indent, fence, language] = codeBlockMatch;
-                    if (!inCodeBlock) {
-                        // 开始代码块
-                        inCodeBlock = true;
-                        codeBlockFence = fence;
-                    } else if (fence === codeBlockFence && indent.length === 0) {
-                        // 结束代码块（需要相同的围栏符号且在行首）
-                        inCodeBlock = false;
-                        codeBlockFence = '';
-                    }
-                    return line;
-                }
-
+            const processedLines = lines.map((line, index) => {
                 // 如果在代码块内，直接返回原行
-                if (inCodeBlock) {
+                if (codeLineMask[index]) {
                     return line;
                 }
 
@@ -2169,31 +2148,14 @@ $$([^\$$
          * 调整标题层级（将最高级别的标题调整为h1）
          */
         static adjustHeadingLevels(content) {
-            const lines = content.split('\n');
-            let inCodeBlock = false;
-            let codeBlockFence = '';
+            const lines = content.split(/\r?\n/);
+            const codeLineMask = Utils.getMarkdownCodeLineMask(lines);
             let minHeadingLevel = 7; // 初始化为一个大于6的值
 
             // 第一遍扫描：找到最小的标题层级
-            for (const line of lines) {
-                // 检测代码块边界
-                const codeBlockMatch = line.match(/^(\s*)(```|~~~)(.*)$/);
-                if (codeBlockMatch) {
-                    const [, indent, fence, language] = codeBlockMatch;
-                    if (!inCodeBlock) {
-                        inCodeBlock = true;
-                        codeBlockFence = fence;
-                    } else if (fence === codeBlockFence && indent.length === 0) {
-                        inCodeBlock = false;
-                        codeBlockFence = '';
-                    }
-                    continue;
-                }
-
+            lines.forEach((line, index) => {
                 // 如果在代码块内，跳过
-                if (inCodeBlock) {
-                    continue;
-                }
+                if (codeLineMask[index]) return;
 
                 // 检测行内代码块
                 const inlineCodeCount = (line.match(/`/g) || []).length;
@@ -2205,7 +2167,7 @@ $$([^\$$
                     const level = headingMatch[1].length;
                     minHeadingLevel = Math.min(minHeadingLevel, level);
                 }
-            }
+            });
 
             // 如果没有找到标题或最小层级已经是1，直接返回原内容
             if (minHeadingLevel >= 7 || minHeadingLevel === 1) {
@@ -2215,28 +2177,10 @@ $$([^\$$
             // 计算需要调整的层级差
             const levelAdjustment = minHeadingLevel - 1;
 
-            // 重置状态进行第二遍处理
-            inCodeBlock = false;
-            codeBlockFence = '';
-
             // 第二遍处理：调整标题层级
-            const processedLines = lines.map(line => {
-                // 检测代码块边界
-                const codeBlockMatch = line.match(/^(\s*)(```|~~~)(.*)$/);
-                if (codeBlockMatch) {
-                    const [, indent, fence, language] = codeBlockMatch;
-                    if (!inCodeBlock) {
-                        inCodeBlock = true;
-                        codeBlockFence = fence;
-                    } else if (fence === codeBlockFence && indent.length === 0) {
-                        inCodeBlock = false;
-                        codeBlockFence = '';
-                    }
-                    return line;
-                }
-
+            const processedLines = lines.map((line, index) => {
                 // 如果在代码块内，直接返回原行
-                if (inCodeBlock) {
+                if (codeLineMask[index]) {
                     return line;
                 }
 
@@ -2306,6 +2250,7 @@ $$([^\$$
             });
 
             ContentProcessor.processMathFormulas();
+            ContentProcessor.processTaskCheckboxes();
         }
 
         /**
@@ -2607,10 +2552,12 @@ $$([^\$$
     function init() {
         const targetNode = document.body;
         DOMObserver.observeDomChange(targetNode, (mutation) => {
-            if (mutation.target.querySelector('.b3-typography')) {
+            if (mutation.target.querySelector('.b3-typography') ||
+                mutation.target.closest?.('.protyle-preview .b3-typography')) {
                 UIManager.addCustomButton();
             }
         });
+        UIManager.addCustomButton();
     }
 
     // 启动应用
