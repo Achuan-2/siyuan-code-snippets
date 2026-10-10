@@ -1,7 +1,5 @@
 // Author: Achuan-2
 // link: https://github.com/Achuan-2/siyuan-code-snippets/blob/main/js/%E7%B2%98%E8%B4%B4%E5%88%B0%E5%BE%AE%E4%BF%A1%E5%85%AC%E4%BC%97%E5%8F%B7%E3%80%81%E7%9F%A5%E4%B9%8E%E3%80%81GitHub.js
-// - v4.0/20260527
-//   - 新增今日头条按钮：块引用优先使用头条链接，否则用知乎链接；外链暴露Markdown链接格式
 // - v3.9/20250918
 //   - 新增识别数据库关联列功能：获取当前文档数据库中的关联列内容，如果关联列不为空，在文档末尾自动添加h2标题"相关笔记"
 // - v3.7/20250830
@@ -53,8 +51,8 @@
         },
         // 是否添加微信公众号名片
         ADD_WECHAT_CARD: false,
-        // 块链接优先级：'wechat'、'zhihu' 或 'toutiao'，可由 UI 控件修改并持久化到 localStorage
-        LINK_PRIORITY: localStorage.getItem('siyuan_link_priority') || 'wechat',
+        // 块链接优先级：'wechat' 或 'zhihu'，旧的无效设置回退到微信公众号
+        LINK_PRIORITY: localStorage.getItem('siyuan_link_priority') === 'zhihu' ? 'zhihu' : 'wechat',
         // 微信公众号卡片（获取方法：在微信公众号的草稿页面手动插入公众号卡片后，开发者工具查看源码，修改下面的参数）
         WECHAT_PROFILE: {
             nickname: "Achuan同学",
@@ -620,34 +618,6 @@ $$([^\$$
                             console.log('Found alternative platform link for block', blockId, ':', otherPlatformLinks[0].content);
                             return otherPlatformLinks[0].content;
                         }
-                    } else if (priority === 'toutiao') {
-                        // 今日头条：优先查找头条链接，否则用知乎链接，最后用其他平台链接
-                        const allPlatformLinks = LinkProcessor.findOtherPlatformLinks(assets);
-
-                        const toutiaoCandidate = allPlatformLinks.find(l => l.platform === '今日头条');
-                        if (toutiaoCandidate) {
-                            console.log('Found Toutiao link for block', blockId, ':', toutiaoCandidate.content);
-                            return toutiaoCandidate.content;
-                        }
-
-                        const zhihuCandidate = allPlatformLinks.find(l => l.platform === '知乎');
-                        if (zhihuCandidate) {
-                            console.log('Found Zhihu link (fallback for Toutiao) for block', blockId, ':', zhihuCandidate.content);
-                            return zhihuCandidate.content;
-                        }
-
-                        // 再尝试微信链接
-                        const weixinLink = assets.find(asset => asset.content?.startsWith('https://mp.weixin.qq.com'));
-                        if (weixinLink) {
-                            console.log('Found WeChat link (fallback for Toutiao) for block', blockId, ':', weixinLink.content);
-                            return weixinLink.content;
-                        }
-
-                        // 最后尝试其他任意平台链接
-                        if (allPlatformLinks.length > 0) {
-                            console.log('Found alternative platform link for block', blockId, ':', allPlatformLinks[0].content);
-                            return allPlatformLinks[0].content;
-                        }
                     } else {
                         // 默认或 'wechat' 优先逻辑（向后兼容）
                         const weixinLink = assets.find(asset => asset.content?.startsWith('https://mp.weixin.qq.com'));
@@ -778,7 +748,6 @@ $$([^\$$
         static findOtherPlatformLinks(assets) {
             // 定义平台优先级（按重要性排序）
             const platformPriorities = [
-                { domain: 'toutiao.com', name: '今日头条' },
                 { domain: 'zhihu.com', name: '知乎' },
                 { domain: 'ld246.com', name: '链滴' },
                 { domain: 'juejin.cn', name: '掘金' },
@@ -2080,113 +2049,6 @@ $$([^\$$
         }
 
         /**
-         * 今日头条按钮点击处理
-         * 头条无法添加外链，外链参考微信公众号，暴露Markdown链接格式
-         * 块引用优先使用头条链接，否则用知乎链接
-         */
-        static async handleToutiaoButtonClick(event) {
-            const activeContainer = document.querySelector('.layout__wnd--active .protyle:not(.fn__none) .protyle-preview .protyle-preview__action');
-            const headingNumberSelect = activeContainer?.querySelector('.heading-number-select');
-            const imageHostSelect = activeContainer?.querySelector('.image-host-select');
-            const addHeadingNumbers = headingNumberSelect ? headingNumberSelect.value === 'yes' : false;
-            const imageHostType = imageHostSelect ? imageHostSelect.value : CONSTANTS.IMAGE_HOST_TYPE.DEFAULT;
-
-            await Utils.showNotification("发布到今日头条：样式转换ing");
-
-            try {
-                const docId = Utils.getCurrentDocumentId();
-
-                // 将优先级持久化为 'toutiao' 并同步更新 UI
-                try { localStorage.setItem('siyuan_link_priority', 'toutiao'); } catch (e) { }
-                CONSTANTS.LINK_PRIORITY = 'toutiao';
-                const prioritySelect = activeContainer?.querySelector('.link-priority-select');
-                if (prioritySelect) prioritySelect.value = 'toutiao';
-
-                // 删除带有title属性的h1标题
-                ContentProcessor.removeTitleH1();
-
-                // 根据图床类型处理图片URL
-                if (imageHostType === CONSTANTS.IMAGE_HOST_TYPE.PICGO) {
-                    if (docId) {
-                        const picgoFileMapKey = await Utils.getDocumentAttribute(docId, 'custom-picgo-file-map-key');
-                        if (picgoFileMapKey) {
-                            const picgoFileMap = JSON.parse(picgoFileMapKey);
-                            await ImageProcessor.replaceImageUrlsInDOM(picgoFileMap);
-                        }
-                    }
-                }
-                ImageProcessor.normalizeImageUrlsInDOM();
-
-                // 添加标题编号
-                if (addHeadingNumbers) {
-                    HeadingNumberProcessor.addNumbersToHTMLHeadings();
-                }
-
-                // 处理图片格式
-                ContentProcessor.convertSiyuanImagesToWechatFormat();
-
-                // 处理代码块格式（头条兼容微信公众号格式）
-                ContentProcessor.convertCodeBlocksForWechat();
-
-                // 处理列表（与微信公众号相同处理）
-                try {
-                    const activeTypography = document.querySelector('.protyle:not(.fn__none) .b3-typography');
-                    if (activeTypography) {
-                        ListProcessor.processListsForWechat(activeTypography);
-                    }
-                } catch (e) {
-                    console.error('处理今日头条列表时出错:', e);
-                }
-
-                // 处理内容
-                ContentProcessor.replaceHrWithImage();
-                ContentProcessor.processBlockquote();
-
-                // 添加相关笔记部分
-                if (docId) {
-                    await LinkProcessor.addRelatedDocumentsToDOM(docId);
-                }
-
-                // 等待预览内容渲染完成（最多等待1秒）
-                let activeTypography = document.querySelector('.layout__wnd--active .protyle:not(.fn__none) .b3-typography');
-                for (let i = 0; i < 10 && activeTypography && activeTypography.children.length === 0; i++) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    activeTypography = document.querySelector('.layout__wnd--active .protyle:not(.fn__none) .b3-typography');
-                }
-
-                // 处理链接转换：头条无法添加外链，外链暴露Markdown链接格式（与微信公众号相同）
-                if (activeTypography) {
-                    await LinkProcessor.convertLinksToWechat(activeTypography);
-                }
-
-                // 点击桌面按钮
-                const desktopButton = document.querySelector('.layout__wnd--active .protyle:not(.fn__none) .protyle-preview .protyle-preview__action > button[data-type="desktop"]');
-                desktopButton?.click();
-
-                // 复制处理后的内容到剪贴板
-                try {
-                    if (activeTypography) {
-                        const range = document.createRange();
-                        range.selectNodeContents(activeTypography);
-                        const selection = window.getSelection();
-                        selection.removeAllRanges();
-                        selection.addRange(range);
-                        document.execCommand('copy');
-                        selection.removeAllRanges();
-                    }
-                } catch (e) {
-                    console.error('复制到剪贴板失败:', e);
-                }
-
-                await Utils.showNotification("发布到今日头条：样式转换完成，已复制到剪贴板");
-
-            } catch (error) {
-                console.error('今日头条处理过程中出错:', error);
-                await Utils.showNotification(`处理失败: ${error.message}`);
-            }
-        }
-
-        /**
          * Markdown按钮点击处理
          */
         static async handleMarkdownButtonClick(event) {
@@ -2440,7 +2302,6 @@ $$([^\$$
 
                 UIManager.addWeChatEnhancedControls(container);
                 UIManager.addNewZhihuButton(container);
-                UIManager.addToutiaoButton(container);
                 UIManager.addMarkdownButton(container);
             });
 
@@ -2511,12 +2372,11 @@ $$([^\$$
                 minWidth: '120px'
             });
 
-            const current = localStorage.getItem('siyuan_link_priority') || CONSTANTS.LINK_PRIORITY || 'wechat';
+            const current = CONSTANTS.LINK_PRIORITY;
 
             const options = [
                 { value: 'wechat', text: '优先使用微信公众号链接', selected: current === 'wechat' },
-                { value: 'zhihu', text: '优先使用知乎链接', selected: current === 'zhihu' },
-                { value: 'toutiao', text: '优先使用今日头条链接', selected: current === 'toutiao' }
+                { value: 'zhihu', text: '优先使用知乎链接', selected: current === 'zhihu' }
             ];
 
             options.forEach(({ value, text, selected }) => {
@@ -2553,45 +2413,6 @@ $$([^\$$
             });
 
             zhihuButton.parentNode.insertBefore(newZhihuButton, zhihuButton.nextSibling);
-        }
-
-        /**
-         * 添加今日头条按钮
-         */
-        static addToutiaoButton(container) {
-            const zhihuButton = container.querySelector('button[data-type="zhihu"]');
-            if (!zhihuButton || container.querySelector('button[data-type="toutiao"]')) {
-                return;
-            }
-
-            const toutiaoButton = document.createElement('button');
-            toutiaoButton.type = 'button';
-            toutiaoButton.dataset.type = 'toutiao';
-            toutiaoButton.dataset.custom = 'true';
-            toutiaoButton.className = 'b3-tooltips b3-tooltips__w';
-            toutiaoButton.setAttribute('aria-label', '今日头条样式转换（外链暴露Markdown格式）');
-            toutiaoButton.textContent = '今';
-
-            Object.assign(toutiaoButton.style, {
-                color: "var(--b3-theme-primary)",
-                backgroundColor: "#e6f7ff",
-                border: "1px solid #91d5ff",
-                borderRadius: "4px",
-                padding: "4px 8px",
-                marginLeft: "8px",
-                fontWeight: "bold",
-                fontSize: "14px"
-            });
-
-            toutiaoButton.addEventListener('click', ButtonHandler.handleToutiaoButtonClick);
-
-            // 插入到知乎按钮后面
-            const newZhihuButton = container.querySelector('button[data-type="new_zhihu"]');
-            if (newZhihuButton) {
-                newZhihuButton.parentNode.insertBefore(toutiaoButton, newZhihuButton.nextSibling);
-            } else {
-                zhihuButton.parentNode.insertBefore(toutiaoButton, zhihuButton.nextSibling);
-            }
         }
 
         /**
